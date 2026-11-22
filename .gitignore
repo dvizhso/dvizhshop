@@ -1,0 +1,21 @@
+# runtime data: SQLite + uploaded photos
+data/
+
+# secrets
+.env
+.env.*
+!.env.example
+
+# dependencies
+node_modules/
+
+# logs / OS
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# editors
+.vscode/
+.idea/

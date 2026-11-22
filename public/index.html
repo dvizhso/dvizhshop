@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#0b0b0a">
+<title>DVIZH FREIBURG — Community Goods</title>
+<meta name="description" content="Мерч DVIZH FREIBURG. Худи, футболки, лонгсливы и аксессуары. Заявка оформляется онлайн и сразу попадает администратору.">
+<meta property="og:title" content="DVIZH FREIBURG — Community Goods">
+<meta property="og:description" content="Официальный мерч DVIZH FREIBURG. Выбирай вещь, размер и цвет.">
+<meta property="og:type" content="website">
+<meta property="og:image" content="/favicon.svg">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+<div class="grain" aria-hidden="true"></div>
+
+<div class="app">
+  <header class="site-head">
+    <a class="brand" href="/" aria-label="DVIZH FREIBURG — на главную">
+      <span class="brand-main">DVIZH</span>
+      <span class="brand-city">FREIBURG</span>
+      <span class="brand-r">®</span>
+    </a>
+    <div class="head-right">
+      <span class="head-meta">FREIBURG / DE</span>
+      <button class="cart-btn" id="openCart" type="button" aria-label="Открыть корзину">
+        <span class="cart-btn-label">КОРЗИНА</span>
+        <span class="cart-count" id="cartCount">0</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero" id="hero">
+      <div class="hero-copy">
+        <div class="eyebrow" id="heroBadge">OFFICIAL COMMUNITY MERCH</div>
+        <h1 id="heroTitle">НЕ ПРОСТО<br><span>ОДЕЖДА.</span></h1>
+        <p id="heroSubtitle">Мерч DVIZH FREIBURG. Выбирай вещь, размер и цвет — заявка сразу уходит администратору.</p>
+        <div class="hero-actions">
+          <button class="btn btn-primary" id="heroCta" type="button">СМОТРЕТЬ КАТАЛОГ <span aria-hidden="true">↓</span></button>
+          <a class="btn btn-ghost" id="heroContact" href="#" target="_blank" rel="noopener" hidden>СВЯЗАТЬСЯ</a>
+        </div>
+        <div class="hero-stats" aria-hidden="true">
+          <span><b>001</b> DROP</span>
+          <span><b>LOCAL</b> ONLY*</span>
+          <span><b>DE</b> FREIBURG</span>
+        </div>
+      </div>
+
+      <div class="mark" aria-hidden="true">
+        <div class="mark-top"><span>FREIBURG / DE</span><span>COMMUNITY GOODS — 001</span></div>
+        <div class="mark-word">DVIZH<span>®</span></div>
+        <div class="mark-bottom"><span>НЕ СМОТРИ СО СТОРОНЫ.</span><span>БУДЬ В ДВИЖЕ.</span></div>
+        <div class="mark-stamp">LOCAL<br>PEOPLE<br>ONLY*</div>
+      </div>
+    </section>
+
+    <div class="ticker" aria-hidden="true">
+      <div class="ticker-track">
+        <span>НЕ СМОТРИ СО СТОРОНЫ.</span><i>✳</i><span>БУДЬ В ДВИЖЕ.</span><i>✳</i><span>FREIBURG / DE</span><i>✳</i><span>COMMUNITY GOODS</span><i>✳</i>
+        <span>НЕ СМОТРИ СО СТОРОНЫ.</span><i>✳</i><span>БУДЬ В ДВИЖЕ.</span><i>✳</i><span>FREIBURG / DE</span><i>✳</i><span>COMMUNITY GOODS</span><i>✳</i>
+      </div>
+    </div>
+
+    <section class="banners" id="banners" hidden aria-label="Анонсы"></section>
+
+    <section class="catalog" id="catalog">
+      <div class="catalog-head">
+        <div>
+          <h2>Каталог</h2>
+          <small id="catalogMeta">Загрузка…</small>
+        </div>
+        <label class="search" id="searchWrap">
+          <span class="search-icon" aria-hidden="true">⌕</span>
+          <input id="searchInput" type="search" placeholder="Поиск по каталогу" autocomplete="off" aria-label="Поиск по каталогу">
+        </label>
+      </div>
+
+      <div class="filters" id="filters" role="group" aria-label="Фильтр по коллекциям"></div>
+
+      <div class="grid" id="products" aria-live="polite" aria-busy="true"></div>
+
+      <div class="state" id="emptyState" hidden>
+        <div class="state-mark">✳</div>
+        <h3>Здесь пока пусто</h3>
+        <p id="emptyText">Товары скоро появятся. Загляни позже.</p>
+        <button class="btn btn-ghost" id="resetFilters" type="button">СБРОСИТЬ ФИЛЬТРЫ</button>
+      </div>
+
+      <div class="state" id="errorState" hidden>
+        <div class="state-mark">!</div>
+        <h3>Каталог не загрузился</h3>
+        <p>Проверь соединение и попробуй ещё раз.</p>
+        <button class="btn btn-primary" id="retryBtn" type="button">ПОВТОРИТЬ</button>
+      </div>
+    </section>
+
+    <div class="notice" id="notice" hidden></div>
+  </main>
+
+  <footer class="site-foot">
+    <div class="foot-brand">
+      <span class="brand-main">DVIZH</span> <span class="brand-city">FREIBURG</span> <span class="brand-r">®</span>
+    </div>
+    <p id="footerText">FREIBURG / DE · COMMUNITY GOODS</p>
+    <a id="contactLink" class="foot-link" href="#" target="_blank" rel="noopener" hidden>СВЯЗАТЬСЯ С АДМИНИСТРАТОРОМ ↗</a>
+  </footer>
+</div>
+
+<!-- ============ ТОВАР ============ -->
+<div class="overlay" id="productOverlay" hidden>
+  <section class="sheet sheet-product" role="dialog" aria-modal="true" aria-labelledby="productTitle">
+    <button class="close" data-close="productOverlay" type="button" aria-label="Закрыть">×</button>
+    <div class="product-view">
+      <div class="gallery">
+        <div class="gallery-main" id="galleryMain"></div>
+        <div class="gallery-thumbs" id="galleryThumbs"></div>
+      </div>
+      <div class="product-info">
+        <div class="product-kicker" id="productKicker">DVIZH FREIBURG</div>
+        <h2 id="productTitle">Товар</h2>
+        <div class="product-price" id="productPrice"></div>
+        <p class="product-desc" id="productDesc"></p>
+
+        <div class="pick" id="sizePick">
+          <div class="pick-label">Размер <span id="sizeValue"></span></div>
+          <div class="choices" id="sizes"></div>
+        </div>
+        <div class="pick" id="colorPick">
+          <div class="pick-label">Цвет <span id="colorValue"></span></div>
+          <div class="choices" id="colors"></div>
+        </div>
+
+        <div class="stock-line" id="productStock"></div>
+
+        <div class="buy-row">
+          <div class="qty" aria-label="Количество">
+            <button type="button" id="qtyMinus" aria-label="Меньше">−</button>
+            <b id="qtyValue">1</b>
+            <button type="button" id="qtyPlus" aria-label="Больше">+</button>
+          </div>
+          <button class="btn btn-primary btn-add" id="addToCart" type="button">ДОБАВИТЬ В КОРЗИНУ</button>
+        </div>
+        <p class="micro">Оплата не на сайте. Заявку подтверждает администратор.</p>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ============ КОРЗИНА ============ -->
+<div class="overlay" id="cartOverlay" hidden>
+  <section class="sheet sheet-cart" role="dialog" aria-modal="true" aria-labelledby="cartTitle">
+    <div class="sheet-head">
+      <h2 id="cartTitle">Корзина</h2>
+      <button class="close" data-close="cartOverlay" type="button" aria-label="Закрыть">×</button>
+    </div>
+    <div class="cart-items" id="cartItems"></div>
+    <div class="cart-foot" id="cartFoot"></div>
+  </section>
+</div>
+
+<!-- ============ ОФОРМЛЕНИЕ ============ -->
+<div class="overlay" id="checkoutOverlay" hidden>
+  <section class="sheet sheet-checkout" role="dialog" aria-modal="true" aria-labelledby="checkoutTitle">
+    <div class="sheet-head">
+      <h2 id="checkoutTitle">Заявка на заказ</h2>
+      <button class="close" data-close="checkoutOverlay" type="button" aria-label="Закрыть">×</button>
+    </div>
+    <form id="checkoutForm" novalidate>
+      <div class="checkout-summary" id="checkoutSummary"></div>
+      <label class="field">
+        <span>Как тебя зовут? <em>*</em></span>
+        <input id="customerName" name="name" placeholder="Имя" maxlength="80" autocomplete="name" required>
+      </label>
+      <label class="field">
+        <span>Telegram или телефон</span>
+        <input id="customerContact" name="contact" placeholder="@username / +49…" maxlength="120" autocomplete="tel">
+      </label>
+      <label class="field">
+        <span>Комментарий</span>
+        <input id="customerNote" name="note" placeholder="Например, удобное время для связи" maxlength="500">
+      </label>
+      <div class="form-error" id="formError" hidden></div>
+      <button class="btn btn-primary btn-submit" id="sendOrder" type="submit">ОТПРАВИТЬ ЗАЯВКУ</button>
+      <p class="micro">Нажимая кнопку, ты отправляешь заявку администратору DVIZH FREIBURG. Это не оплата: детали заказа согласуются в переписке.</p>
+    </form>
+  </section>
+</div>
+
+<!-- ============ УСПЕХ ============ -->
+<div class="overlay" id="successOverlay" hidden>
+  <section class="sheet sheet-success" role="dialog" aria-modal="true" aria-labelledby="successTitle">
+    <div class="success-mark">✳</div>
+    <h2 id="successTitle">Заявка отправлена</h2>
+    <p id="successText">Администратор получил заказ и свяжется с тобой.</p>
+    <div class="success-id" id="successId"></div>
+    <button class="btn btn-primary" id="successClose" type="button">ПОНЯТНО</button>
+  </section>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="/app.js" defer></script>
+</body>
+</html>

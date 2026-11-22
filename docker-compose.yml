@@ -1,0 +1,22 @@
+services:
+  shop:
+    build: .
+    container_name: dvizh-shop
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "8088:8088"
+    volumes:
+      - ./data:/app/data
+    command: ["node", "--experimental-sqlite", "server.mjs"]
+
+  bot:
+    build: .
+    container_name: dvizh-bot
+    restart: unless-stopped
+    env_file: .env
+    volumes:
+      - ./data:/app/data
+    depends_on:
+      - shop
+    command: ["node", "--experimental-sqlite", "bot.mjs"]

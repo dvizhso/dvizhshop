@@ -1,0 +1,17 @@
+{
+  "name": "dvizh-freiburg-shop",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "DVIZH FREIBURG — интернет-магазин + Telegram-бот администратора (общая SQLite-база)",
+  "engines": { "node": ">=22.5.0" },
+  "scripts": {
+    "start": "node --experimental-sqlite server.mjs",
+    "bot": "node --experimental-sqlite bot.mjs",
+    "seed": "node --experimental-sqlite scripts/seed.mjs",
+    "setup": "node scripts/setup-web.mjs",
+    "setup:cli": "node scripts/setup.mjs",
+    "publish": "node scripts/publish-github.mjs",
+    "test": "node --experimental-sqlite test/bot-smoke.mjs"
+  }
+}
