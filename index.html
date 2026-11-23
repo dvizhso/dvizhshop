@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#090909"><title>DVIZH FREIBURG — Shop</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#090909;--panel:#151515;--panel2:#202020;--text:#f5f5f5;--muted:#999;--line:#2b2b2b;--yellow:#ffd51d;--r:18px}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}button,input{font:inherit}button{cursor:pointer}
+.app{max-width:1000px;margin:auto;padding:16px 15px 100px}header{display:flex;justify-content:space-between;align-items:center;padding:12px 0 20px;border-bottom:1px solid var(--line)}
+.brand{font-size:19px;font-weight:950;letter-spacing:2px}.brand span{color:var(--yellow)}.cart-btn{background:var(--panel2);color:white;border:1px solid var(--line);padding:10px 14px;border-radius:30px}.count{color:var(--yellow);font-weight:900}
+.hero{padding:32px 0 22px}.eyebrow{color:var(--yellow);font-size:11px;letter-spacing:3px;font-weight:900}h1{font-size:clamp(38px,9vw,68px);line-height:.95;letter-spacing:-2px;margin:13px 0}.hero p{color:var(--muted);line-height:1.55;max-width:540px}.mark{margin-top:22px;border:1px solid var(--line);border-radius:var(--r);height:115px;display:grid;place-items:center;background:radial-gradient(ellipse,#27210b,#0c0c0c 70%);font-size:clamp(40px,10vw,70px);font-weight:1000;letter-spacing:-3px;color:var(--yellow)}
+.head{display:flex;justify-content:space-between;align-items:end;margin:28px 0 14px}.head h2{margin:0;font-size:22px}.head small{color:var(--muted)}
+.filters{display:flex;gap:8px;overflow:auto;padding-bottom:14px}.filters button{white-space:nowrap;background:none;border:1px solid var(--line);color:var(--muted);padding:9px 14px;border-radius:30px}.filters button.active{background:var(--yellow);border-color:var(--yellow);color:#111;font-weight:900}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}@media(min-width:720px){.grid{grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}.app{padding-left:24px;padding-right:24px}}
+.product{background:var(--panel);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}.art{aspect-ratio:1;background:linear-gradient(145deg,#292929,#101010);display:grid;place-items:center;color:var(--yellow);font-weight:1000;font-size:32px;letter-spacing:-2px;text-shadow:0 5px 25px #000}.info{padding:13px}.info h3{font-size:15px;margin:0 0 5px}.info p{font-size:12px;color:var(--muted);margin:0 0 12px}.bottom{display:flex;align-items:center;justify-content:space-between;gap:7px}.price{font-weight:900}.add,.primary{background:var(--yellow);color:#111;border:0;border-radius:12px;padding:10px 13px;font-weight:900}.notice{margin-top:22px;padding:15px;border:1px solid var(--line);border-radius:var(--r);font-size:13px;line-height:1.5;color:var(--muted)}
+.overlay{display:none;position:fixed;inset:0;background:#000b;z-index:5;align-items:end;justify-content:center}.overlay.show{display:flex}.sheet{width:100%;max-width:640px;max-height:88vh;overflow:auto;background:#111;border:1px solid var(--line);border-radius:22px 22px 0 0;padding:19px 17px calc(24px + env(safe-area-inset-bottom))}@media(min-width:700px){.overlay{align-items:center;padding:20px}.sheet{border-radius:22px}}
+.sheethead{display:flex;justify-content:space-between;align-items:center;margin-bottom:16px}.sheethead h2{margin:0;font-size:21px}.close{width:36px;height:36px;border:0;border-radius:50%;background:#292929;color:white;font-size:20px}
+.field{display:grid;gap:7px;margin:14px 0}.field label{font-size:13px;color:var(--muted)}.field input{width:100%;padding:13px;border:1px solid #383838;border-radius:12px;background:#1c1c1c;color:white;outline:none}.field input:focus{border-color:var(--yellow)}
+.choices{display:flex;flex-wrap:wrap;gap:8px}.choice{background:#202020;border:1px solid #444;color:white;border-radius:10px;padding:9px 13px}.choice.selected{border-color:var(--yellow);color:var(--yellow)}
+.cartrow{display:grid;grid-template-columns:1fr auto;gap:10px;padding:13px 0;border-bottom:1px solid var(--line)}.cartrow small{color:var(--muted)}.qty{display:flex;align-items:center;gap:8px}.qty button{width:28px;height:28px;border:0;border-radius:8px;background:#292929;color:white}.total{display:flex;justify-content:space-between;font-size:18px;font-weight:900;margin:18px 0}.empty{text-align:center;color:var(--muted);padding:30px 5px}
+.primary{width:100%;padding:15px;margin-top:12px}.hint{font-size:12px;line-height:1.5;color:var(--muted);margin-top:10px}.toast{display:none;position:fixed;bottom:85px;left:50%;transform:translateX(-50%);background:#252525;border:1px solid #444;padding:11px 16px;border-radius:30px;z-index:10;font-size:13px}
+nav{position:fixed;bottom:0;left:0;right:0;background:#101010f2;border-top:1px solid var(--line);display:flex;justify-content:center;padding:10px 15px calc(10px + env(safe-area-inset-bottom));z-index:3}nav button{background:none;border:0;color:var(--muted);padding:8px 20px}nav button.active{color:var(--yellow)}
+
+/* DVIZH identity layer — editorial gig-poster / local zine direction */
+:root{--bg:#0b0b0a;--panel:#141412;--panel2:#1d1d19;--yellow:#f3d21b;--line:#343329;--r:8px}
+body{background-color:var(--bg);background-image:radial-gradient(#ffffff0b .7px,transparent .7px);background-size:5px 5px}
+.app{max-width:1120px}
+header{border-bottom:1px solid #55513b;position:relative}
+header:after{content:"";position:absolute;bottom:-2px;left:0;width:74px;height:3px;background:var(--yellow)}
+.brand{font-size:17px;letter-spacing:2.8px}.brand span{color:var(--yellow)}
+.cart-btn{border-radius:4px;border:1px solid #71682b;background:transparent;text-transform:uppercase;font-size:11px;letter-spacing:1px}
+.hero{padding:34px 0 20px;position:relative}
+.eyebrow{display:inline-block;background:var(--yellow);color:#10100d;padding:6px 9px;letter-spacing:2px;transform:rotate(-1deg)}
+h1{font-size:clamp(46px,11vw,94px);line-height:.82;letter-spacing:-.075em;font-weight:1000;margin:22px 0 18px}
+.hero p{font-size:14px;max-width:430px;color:#b8b6a9}
+.mark{height:auto;min-height:180px;border-radius:3px;border:1px solid #6b622a;background:linear-gradient(110deg,#171710 0%,#24210e 50%,#11110d 100%);display:flex;flex-direction:column;align-items:stretch;justify-content:space-between;padding:14px 16px;position:relative;overflow:hidden;text-align:left}
+.mark:before{content:"";position:absolute;inset:9px;border:1px solid #ffffff18;pointer-events:none}
+.mark-top,.mark-bottom{display:flex;justify-content:space-between;gap:10px;position:relative;font-size:9px;letter-spacing:1.7px;font-weight:900;color:#bdb78d}
+.mark-word{position:relative;font-size:clamp(68px,18vw,148px);line-height:.78;letter-spacing:-.11em;font-weight:1000;color:var(--yellow);transform:rotate(-4deg);text-shadow:4px 4px 0 #8c7810}
+.mark-word span{font-size:17px;vertical-align:top;letter-spacing:0}
+.mark-stamp{position:absolute;right:19px;top:45px;border:2px solid var(--yellow);color:var(--yellow);font-size:9px;line-height:1.1;letter-spacing:1px;font-weight:1000;padding:7px 5px;transform:rotate(8deg);text-align:center}
+.head{border-top:1px solid #4b4836;padding-top:20px;margin-top:36px}
+.head h2{text-transform:uppercase;letter-spacing:1px;font-size:21px}
+.head small{font-size:10px;letter-spacing:1.4px;text-transform:uppercase}
+.filters{padding:3px 0 17px}
+.filters button{border-radius:3px;text-transform:uppercase;font-size:10px;letter-spacing:1px;padding:9px 12px}
+.filters button.active{background:var(--yellow);color:#111;border-color:var(--yellow);box-shadow:3px 3px 0 #766718}
+.grid{gap:13px}
+.product{border-radius:4px;border-color:#38372d;background:#121210;transition:transform .18s,border-color .18s}
+.product:active{transform:scale(.985)}
+.art{aspect-ratio: .91;background:linear-gradient(145deg,#24241f,#11110f);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;text-shadow:none}
+.art:before{content:"";position:absolute;inset:10px;border:1px solid #ffffff18}
+.art:after{content:"";position:absolute;width:135%;height:1px;background:#f3d21b55;transform:rotate(-34deg)}
+.art-word{font-size:clamp(28px,7vw,53px);font-weight:1000;letter-spacing:-.1em;color:var(--yellow);transform:rotate(-9deg);text-shadow:3px 3px 0 #75640d;z-index:1}
+.art-code,.art-city{position:absolute;z-index:2;font-size:8px;letter-spacing:1.6px;font-weight:900;color:#c5c1a9}
+.art-code{top:17px;left:16px}.art-city{bottom:16px;right:14px}
+.art[data-kind="tee"]{background:linear-gradient(135deg,#29291f,#10100e 70%)}
+.art[data-kind="hoodie"]{background:linear-gradient(135deg,#25231c,#13120f 70%)}
+.art[data-kind="zip"]{background:linear-gradient(135deg,#2a281c,#10100e 70%)}
+.art[data-kind="sweat"]{background:linear-gradient(135deg,#25251f,#10100e 70%)}
+.art[data-kind="long"]{background:linear-gradient(135deg,#29251c,#10100e 70%)}
+.art[data-kind="cap"]{background:linear-gradient(135deg,#302b18,#11100c 70%)}
+.info{padding:13px 12px 14px}
+.info h3{font-size:14px;letter-spacing:.1px}
+.info p{font-size:11px;min-height:28px}
+.price{font-size:14px}
+.add,.primary{border-radius:3px;text-transform:uppercase;letter-spacing:.8px;font-size:10px;padding:11px 12px;box-shadow:3px 3px 0 #766718}
+.notice{border-radius:3px;border-left:3px solid var(--yellow);background:#11110e}
+.sheet{border-radius:8px 8px 0 0;background:#11110e;border-color:#4a4631}
+.sheethead h2{text-transform:uppercase;letter-spacing:.8px}
+.close{border-radius:4px}
+.choice{border-radius:3px}.choice.selected{background:#29240d}
+.field input{border-radius:4px}
+.total{border-top:1px solid #39372b;padding-top:16px}
+nav{background:#0d0d0bf5;border-top-color:#45412e}
+nav button{font-size:11px;letter-spacing:.4px}
+@media(min-width:720px){.grid{gap:17px}.product:hover{transform:translateY(-4px);border-color:#8d7b24}}
+
+</style></head>
+<body>
+<div class="app">
+<header><div class="brand">DVIZH <span>FREIBURG</span></div><button class="cart-btn" id="openCart">Корзина <span class="count" id="count">0</span></button></header>
+<section class="hero"><div class="eyebrow">OFFICIAL COMMUNITY MERCH</div><h1>НЕ ПРОСТО<br><span style="color:var(--yellow)">ОДЕЖДА.</span></h1><p>Мерч Dvizh Freiburg. Выбирай вещь, размер и цвет — отправляй заявку напрямую в личные сообщения.</p><div class="mark">
+  <div class="mark-top"><span>FREIBURG / DE</span><span>COMMUNITY GOODS — 001</span></div>
+  <div class="mark-word">DVIZH<span>®</span></div>
+  <div class="mark-bottom"><span>НЕ СМОТРИ СО СТОРОНЫ.</span><span>БУДЬ В ДВИЖЕ.</span></div>
+  <div class="mark-stamp">LOCAL<br>PEOPLE<br>ONLY*</div>
+</div></section>
+<div class="head"><h2>Каталог</h2><small>Первая коллекция</small></div><div class="filters" id="filters"></div><main class="grid" id="products"></main>
+<div class="notice">Это предварительный каталог. Заказ не оплачивается на сайте: после нажатия кнопки откроется Telegram-чат с администратором и подготовленным текстом заявки. Заказ считается отправленным только после того, как ты нажмёшь «Отправить» в Telegram.</div>
+</div>
+<div class="overlay" id="productModal"><section class="sheet"><div class="sheethead"><h2 id="modalTitle">Товар</h2><button class="close" data-close="productModal">×</button></div><div id="modalPrice" class="price"></div><div class="field"><label>Размер</label><div class="choices" id="sizes"></div></div><div class="field"><label>Цвет</label><div class="choices" id="colors"></div></div><button class="primary" id="addToCart">Добавить в корзину</button></section></div>
+<div class="overlay" id="cartModal"><section class="sheet"><div class="sheethead"><h2>Корзина</h2><button class="close" data-close="cartModal">×</button></div><div id="cartItems"></div><div id="cartFooter"></div></section></div>
+<div class="overlay" id="checkoutModal"><section class="sheet"><div class="sheethead"><h2>Заявка на заказ</h2><button class="close" data-close="checkoutModal">×</button></div>
+<div class="field"><label for="customerName">Как тебя зовут?</label><input id="customerName" placeholder="Имя"></div>
+<div class="field"><label for="customerContact">Твой Telegram или телефон (необязательно)</label><input id="customerContact" placeholder="@username"></div>
+<div class="field"><label for="customerNote">Комментарий к заказу (необязательно)</label><input id="customerNote" placeholder="Например, удобное время для связи"></div>
+<button class="primary" id="sendOrder">Перейти в личные сообщения</button>
+<p class="hint">Откроется Telegram с готовым сообщением. Проверь его и самостоятельно нажми «Отправить». Никаких данных карты или онлайн-оплаты здесь нет.</p>
+</section></div>
+<nav><button class="active" id="homeNav">⌂ Главная</button><button id="catalogNav">▦ Каталог</button><button id="cartNav">🛒 Корзина</button></nav><div class="toast" id="toast"></div>
+<script>
+/* НАСТРОЙКА: замени username ниже на свой Telegram username без символа @ */
+const OWNER_USERNAME = "YOUR_TELEGRAM_USERNAME";
+
+const products=[
+{id:"tee",name:"Футболка DVIZH",category:"Футболки",price:25,kind:"tee",desc:"Базовая футболка с логотипом"},
+{id:"hoodie",name:"Худи DVIZH",category:"Худи",price:55,kind:"hoodie",desc:"Плотное худи для повседневной носки"},
+{id:"zip",name:"Зип-худи DVIZH",category:"Зип-худи",price:60,kind:"zip",desc:"Худи на молнии"},
+{id:"sweat",name:"Свитшот DVIZH",category:"Свитшоты",price:45,kind:"sweat",desc:"Минималистичный свитшот"},
+{id:"long",name:"Лонгслив DVIZH",category:"Лонгсливы",price:32,kind:"long",desc:"Футболка с длинным рукавом"},
+{id:"cap",name:"Кепка DVIZH",category:"Аксессуары",price:20,kind:"cap",desc:"Кепка с вышивкой"}
+];
+const categories=["Все","Футболки","Худи","Зип-худи","Свитшоты","Лонгсливы","Аксессуары"];
+let activeCategory="Все",cart=[],selectedProduct=null,selectedSize="M",selectedColor="Чёрный";
+const $=id=>document.getElementById(id);
+const money=n=>`€${n.toFixed(2).replace(".00","")}`;
+function toast(msg){$("toast").textContent=msg;$("toast").style.display="block";setTimeout(()=>$("toast").style.display="none",2200)}
+function show(id){$(id).classList.add("show")}function hide(id){$(id).classList.remove("show")}
+function renderFilters(){$("filters").innerHTML=categories.map(c=>`<button class="${c===activeCategory?"active":""}" data-category="${c}">${c}</button>`).join("");}
+function renderProducts(){const list=activeCategory==="Все"?products:products.filter(p=>p.category===activeCategory);$("products").innerHTML=list.map(p=>`<article class="product"><div class="art" data-kind="${p.kind}"><span class="art-code">${p.id.toUpperCase()}</span><span class="art-word">DVIZH</span><span class="art-city">FREIBURG · 2026</span></div><div class="info"><h3>${p.name}</h3><p>${p.desc}</p><div class="bottom"><span class="price">${money(p.price)}</span><button class="add" data-product="${p.id}">Выбрать</button></div></div></article>`).join("");}
+function updateCount(){$("count").textContent=cart.reduce((s,x)=>s+x.qty,0)}
+function openProduct(id){selectedProduct=products.find(p=>p.id===id);selectedSize="M";selectedColor="Чёрный";$("modalTitle").textContent=selectedProduct.name;$("modalPrice").textContent=money(selectedProduct.price);renderChoices();show("productModal")}
+function renderChoices(){$("sizes").innerHTML=["XS","S","M","L","XL","XXL"].map(s=>`<button class="choice ${s===selectedSize?"selected":""}" data-size="${s}">${s}</button>`).join("");$("colors").innerHTML=["Чёрный","Белый","Серый"].map(c=>`<button class="choice ${c===selectedColor?"selected":""}" data-color="${c}">${c}</button>`).join("")}
+function addSelected(){const key=selectedProduct.id+"_"+selectedSize+"_"+selectedColor;const found=cart.find(x=>x.key===key);if(found)found.qty++;else cart.push({key,id:selectedProduct.id,name:selectedProduct.name,price:selectedProduct.price,size:selectedSize,color:selectedColor,qty:1});updateCount();hide("productModal");toast("Добавлено в корзину")}
+function renderCart(){if(!cart.length){$("cartItems").innerHTML='<div class="empty">Корзина пока пустая</div>';$("cartFooter").innerHTML="";return}
+$("cartItems").innerHTML=cart.map(x=>`<div class="cartrow"><div><b>${x.name}</b><br><small>${x.size} · ${x.color} · ${money(x.price)}</small></div><div class="qty"><button data-minus="${x.key}">−</button><b>${x.qty}</b><button data-plus="${x.key}">+</button></div></div>`).join("");
+const total=cart.reduce((s,x)=>s+x.price*x.qty,0);$("cartFooter").innerHTML=`<div class="total"><span>Итого</span><span>${money(total)}</span></div><button class="primary" id="checkoutBtn">Оформить заявку</button><p class="hint">Без оплаты. Заявка будет отправлена тебе в личные сообщения Telegram.</p>`}
+function orderText(){const name=$("customerName").value.trim();if(!name){toast("Напиши, как тебя зовут");$("customerName").focus();return null}
+const lines=cart.map(x=>`• ${x.name} — ${x.qty} шт. / размер ${x.size} / цвет ${x.color} / ${money(x.price*x.qty)}`).join("\n");
+const total=cart.reduce((s,x)=>s+x.price*x.qty,0);
+return `Привет! Хочу оставить заявку на мерч Dvizh Freiburg.\n\nИмя: ${name}\nКонтакт: ${$("customerContact").value.trim()||"не указан"}\n\nЗаказ:\n${lines}\n\nИтого: ${money(total)}\nКомментарий: ${$("customerNote").value.trim()||"нет"}\n\nПодтверди, пожалуйста, наличие и детали заказа.`}
+function sendOrder(){if(!cart.length){toast("Корзина пустая");return}if(!OWNER_USERNAME||OWNER_USERNAME==="YOUR_TELEGRAM_USERNAME"){toast("Сначала укажи свой Telegram username в коде");return}
+const text=orderText();if(!text)return;
+const url=`https://t.me/${OWNER_USERNAME}?text=${encodeURIComponent(text)}`;
+const tg=window.Telegram?.WebApp;if(tg){tg.openTelegramLink(url)}else{window.open(url,"_blank")}
+}
+$("filters").addEventListener("click",e=>{const b=e.target.closest("[data-category]");if(!b)return;activeCategory=b.dataset.category;renderFilters();renderProducts()});
+$("products").addEventListener("click",e=>{const b=e.target.closest("[data-product]");if(b)openProduct(b.dataset.product)});
+$("sizes").addEventListener("click",e=>{const b=e.target.closest("[data-size]");if(b){selectedSize=b.dataset.size;renderChoices()}});
+$("colors").addEventListener("click",e=>{const b=e.target.closest("[data-color]");if(b){selectedColor=b.dataset.color;renderChoices()}});
+$("addToCart").onclick=addSelected;$("openCart").onclick=()=>{renderCart();show("cartModal")};$("cartNav").onclick=()=>{renderCart();show("cartModal")};$("catalogNav").onclick=()=>$("products").scrollIntoView({behavior:"smooth"});$("homeNav").onclick=()=>window.scrollTo({top:0,behavior:"smooth"});
+document.addEventListener("click",e=>{const c=e.target.closest("[data-close]");if(c)hide(c.dataset.close);const plus=e.target.closest("[data-plus]");const minus=e.target.closest("[data-minus]");if(plus||minus){const key=(plus||minus).dataset.plus||(plus||minus).dataset.minus;const item=cart.find(x=>x.key===key);if(item){item.qty+=plus?1:-1;if(item.qty<=0)cart=cart.filter(x=>x.key!==key);updateCount();renderCart()}}if(e.target.id==="checkoutBtn"){hide("cartModal");show("checkoutModal")}});
+$("sendOrder").onclick=sendOrder;
+["productModal","cartModal","checkoutModal"].forEach(id=>$(id).addEventListener("click",e=>{if(e.target.id===id)hide(id)}));
+if(window.Telegram?.WebApp){Telegram.WebApp.ready();Telegram.WebApp.expand();Telegram.WebApp.setHeaderColor("#090909");Telegram.WebApp.setBackgroundColor("#090909")}
+renderFilters();renderProducts();updateCount();
+</script></body></html>
