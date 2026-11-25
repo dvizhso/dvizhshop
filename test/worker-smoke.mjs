@@ -36,19 +36,11 @@ class D1 {
     }
   }
 }
-class Bucket {
-  constructor() { this.map = new Map(); }
-  async put(key, bytes, options) { this.map.set(key, { bytes, options }); }
-  async get(key) { const v = this.map.get(key); return v ? { body: v.bytes, httpMetadata: v.options.httpMetadata } : null; }
-  async delete(key) { this.map.delete(key); }
-}
-
 const DB = new D1(sqlite);
-const BUCKET = new Bucket();
 const ADMIN_ID = '111';
 const WEBHOOK_SECRET = 'test-webhook-secret';
 const env = {
-  DB, BUCKET,
+  DB,
   TELEGRAM_BOT_TOKEN: '123456789:' + 'A'.repeat(35),
   ADMIN_ID,
   ADMIN_TOKEN: 'test-admin-token',
@@ -115,6 +107,7 @@ try {
   const health = await call('/health');
   checks.health = health.status === 200 && health.data.ok === true;
   checks.healthTelegram = health.data.telegram === true;
+  checks.healthNoPhotos = health.data.photos === false;
 
   const catalog = await call('/api/catalog');
   checks.catalog = catalog.status === 200 && catalog.data.products.length === 6;
@@ -312,11 +305,19 @@ try {
     headers: { 'X-Admin-Token': 'test-admin-token' },
     body: { data: photoData, mime: 'image/png' },
   });
-  checks.photoUpload = photo.status === 201 && /^uploads\/p-/.test(photo.data.photo.path);
-  checks.photoStored = BUCKET.map.size === 1;
+  // R2 не подключён: загрузка фото возвращает понятную ошибку, Worker не падает.
+  checks.photoUpload = photo.status === 503 && /Хранение фото не подключено/.test(photo.data.error || '');
+  const photosInDb = sqlite.prepare('SELECT COUNT(*) AS c FROM product_photos').get();
+  checks.noPhotoRecords = Number(photosInDb.c) === 0;
 
-  const served = await call(`/${photo.data.photo.path}`);
-  checks.photoServed = served.status === 200;
+  const served = await call('/uploads/test.jpg');
+  checks.photoServed = served.status === 503 && /Хранение фото не подключено/.test(served.data.error || '');
+
+  const removed = await call(`/api/admin/products/${created.data.product.id}`, {
+    method: 'DELETE',
+    headers: { 'X-Admin-Token': 'test-admin-token' },
+  });
+  checks.deleteProductWithoutR2 = removed.status === 200 && removed.data.ok === true;
 
   const orders = await call('/api/admin/orders', { headers: { 'X-Admin-Token': 'test-admin-token' } });
   checks.ordersList = orders.status === 200 && orders.data.orders.length === 2 && orders.data.orders[0].items.length === 1;

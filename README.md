@@ -26,10 +26,10 @@
 
 - **Frontend** — статический `public/`, данные берёт из API.
 - **Backend (локально)** — `server.mjs` на встроенном `node:http`, без внешних зависимостей.
-- **Backend (публично, бесплатно)** — `worker/` на Cloudflare Workers + D1 + R2, пока сайт на GitHub Pages.
+- **Backend (публично, бесплатно)** — `worker/` на Cloudflare Workers + D1, пока сайт на GitHub Pages. R2 не требуется.
 - **База** — SQLite через встроенный `node:sqlite` (Node 22+) либо D1 в облаке.
 - **Бот** — `bot.mjs` локально или `worker/src/bot.mjs` в облаке; оба меняют то, что видит покупатель.
-- **Фото** — `data/uploads/` локально или R2 в облаке, отдаются по `/uploads/...`.
+- **Фото** — локально `data/uploads/`; в облаке хранилище не подключено, загрузка фото отключена аккуратно (без падений) и легко включается позже через R2.
 - **Уведомления о заказах** — отдельный модуль: заявка сохраняется, ставится в очередь и уходит владельцу в Telegram.
 
 ---
@@ -162,7 +162,7 @@ dvizhshop/
 │  ├─ src/telegram.mjs     # Bot API и формат уведомления о заявке
 │  ├─ src/notify.mjs       # отдельный модуль уведомлений и повторных попыток
 │  └─ src/bot.mjs          # личный Telegram-бот владельца (webhook)
-├─ wrangler.toml           # Cloudflare: D1, R2, cron
+├─ wrangler.toml           # Cloudflare: D1, cron (R2 закомментирован, опционален)
 ├─ .github/workflows/pages.yml  # публикация public/ на GitHub Pages
 ├─ public/
 │  ├─ index.html           # магазин
@@ -266,8 +266,8 @@ npm run publish
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/dvizhso/dvizhshop)
 
-1. Нажмите кнопку и авторизуйте Cloudflare. Он сам создаст Worker, базу D1
-   `dvizh-shop-db` и хранилище фото R2 `dvizh-shop-photos` (см. `wrangler.toml`).
+1. Нажмите кнопку и авторизуйте Cloudflare. Он сам создаст Worker и базу D1
+   `dvizh-shop-db` (см. `wrangler.toml`). Бакет R2 не нужен.
 2. В Worker → **Settings → Variables and Secrets** добавьте секреты:
    - `TELEGRAM_BOT_TOKEN` — токен бота от @BotFather;
    - `ADMIN_ID` — только ваш Telegram ID (бот никого больше не пустит);
@@ -294,12 +294,11 @@ npm run publish
    запомнит чат и будет присылать статусы только по этому заказу. Административные
    команды посторонним по-прежнему недоступны.
 
-Если Cloudflare не смог создать D1/R2 автоматически (старая версия Wrangler), создайте их
-вручную и впишите идентификаторы в `wrangler.toml`:
+Если Cloudflare не смог создать D1 автоматически (старая версия Wrangler), создайте базу
+вручную и впишите её идентификатор в `wrangler.toml`:
 
 ```bash
 npx wrangler d1 create dvizh-shop-db
-npx wrangler r2 bucket create dvizh-shop-photos
 ```
 
 ```toml
@@ -310,6 +309,13 @@ database_id = "<id из вывода команды>"
 ```
 
 Затем повторите деплой. Схема таблиц создаётся автоматически при первом запросе к Worker.
+
+#### Фото позже (необязательно)
+
+Чтобы включить загрузку фото в облаке, раскомментируйте блок `[[r2_buckets]]` в `wrangler.toml`
+и создайте бакет командой `npx wrangler r2 bucket create dvizh-shop-photos`. Код Worker уже
+проверяет наличие биндинга `BUCKET`: без него заказы, каталог и бот работают нормально,
+а запросы на загрузку фото возвращают понятную ошибку вместо падения.
 
 Если Telegram временно недоступен, заявка всё равно сохраняется, а Worker повторяет
 отправку по cron-расписанию каждые 5 минут (`notify_queue`). Вручную повторить очередь:

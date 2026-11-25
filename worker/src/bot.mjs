@@ -284,6 +284,13 @@ async function handlePhoto(env, message, session) {
   if (!session || session.kind !== 'photo') return;
   const photos = Array.isArray(message.photo) ? message.photo : [];
   if (!photos.length) return;
+  // Хранилище необязательно. Без биндинга BUCKET бот не падает: фото просто
+  // не сохраняются, а остальной функционал продолжает работать.
+  if (!env.BUCKET) {
+    await reply(env, message.chat.id,
+      '⚠️ Хранение фото не подключено. Товар создан без фото; остальные функции работают.');
+    return;
+  }
   const best = photos[photos.length - 1];
   try {
     const file = await tg(env, 'getFile', { file_id: best.file_id });

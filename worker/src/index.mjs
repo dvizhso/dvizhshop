@@ -1,6 +1,6 @@
 // DVIZH FREIBURG — Cloudflare Worker.
 // Публичный API для GitHub Pages, приём заказов, Telegram-уведомления,
-// фото в R2 и защищённый admin API.
+// защищённый admin API и опциональное хранение фото в R2.
 import {
   ensureSchema, publicCatalog, createOrder, getSetting, getSettings, setSetting,
   listProducts, getProduct, createProduct, updateProduct, deleteProduct,
@@ -66,6 +66,14 @@ function adminAuthorized(request, env) {
   return safeEqual(request.headers.get('X-Admin-Token') || '', env.ADMIN_TOKEN);
 }
 
+// Хранилище фото необязательно. Когда биндинг BUCKET подключён, код работает
+// как раньше; без него заказы, каталог и бот продолжают работать нормально.
+export class PhotoStorageError extends Error {}
+
+function photosEnabled(env) {
+  return Boolean(env.BUCKET);
+}
+
 function imageExtension(mime) {
   return { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' }[mime] || null;
 }
@@ -73,7 +81,7 @@ function imageExtension(mime) {
 async function savePhoto(env, data, mime) {
   const ext = imageExtension(mime);
   if (!ext) throw new Error('Неподдерживаемый формат (только JPEG/PNG/WEBP)');
-  if (!env.BUCKET) throw new Error('R2 bucket не настроен');
+  if (!photosEnabled(env)) throw new PhotoStorageError('Хранение фото не подключено');
   let bytes;
   try { bytes = Uint8Array.from(atob(String(data || '')), (c) => c.charCodeAt(0)); }
   catch { throw new Error('Некорректное фото'); }
@@ -84,7 +92,7 @@ async function savePhoto(env, data, mime) {
 }
 
 async function deletePhotoObject(env, path) {
-  if (!env.BUCKET || !path) return;
+  if (!photosEnabled(env) || !path) return; // без бакета просто чистим запись в БД
   try { await env.BUCKET.delete(String(path).replace(/^\/+/, '')); } catch { /* уже нет */ }
 }
 
@@ -139,9 +147,16 @@ async function handleAdmin(request, env, url, path) {
       const product = await getProduct(env, parts[1]);
       if (!product) return json({ error: 'Товар не найден' }, 404);
       const body = await readJson(request);
-      const key = await savePhoto(env, body.data, body.mime);
-      const photo = await addProductPhoto(env, product.id, key);
-      return json({ photo }, 201);
+      try {
+        const key = await savePhoto(env, body.data, body.mime);
+        const photo = await addProductPhoto(env, product.id, key);
+        return json({ photo }, 201);
+      } catch (error) {
+        if (error instanceof PhotoStorageError) {
+          return json({ error: 'Хранение фото не подключено. Добавьте R2-биндинг BUCKET в wrangler.toml.' }, 503);
+        }
+        throw error;
+      }
     }
   }
 
@@ -240,6 +255,7 @@ export default {
           time: new Date().toISOString(),
           telegram: notificationsConfigured(env),
           bot: hasBot(env),
+          photos: photosEnabled(env),
           pendingNotifications: await pendingNotificationCount(env),
         });
       }
@@ -282,7 +298,7 @@ export default {
       }
 
       if (path.startsWith('/uploads/') && method === 'GET') {
-        if (!env.BUCKET) return json({ error: 'Фото не настроены' }, 404);
+        if (!photosEnabled(env)) return json({ error: 'Хранение фото не подключено' }, 503);
         const key = path.slice(1);
         const object = await env.BUCKET.get(key);
         if (!object) return json({ error: 'Фото не найдено' }, 404);

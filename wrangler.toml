@@ -3,14 +3,17 @@ main = "worker/src/index.mjs"
 compatibility_date = "2026-11-22"
 compatibility_flags = ["nodejs_compat"]
 
-# Cloudflare создаст D1 и R2 автоматически при деплое через кнопку.
+# Cloudflare создаст D1 автоматически при деплое через кнопку.
 [[d1_databases]]
 binding = "DB"
 database_name = "dvizh-shop-db"
 
-[[r2_buckets]]
-binding = "BUCKET"
-bucket_name = "dvizh-shop-photos"
+# Хранение фото пока НЕ используется: Worker работает без R2.
+# Если позже понадобятся фото — раскомментируйте блок и задеплойте заново.
+# Код уже умеет использовать биндинг BUCKET, когда он присутствует.
+# [[r2_buckets]]
+# binding = "BUCKET"
+# bucket_name = "dvizh-shop-photos"
 
 [vars]
 SITE_URL = "https://dvizhso.github.io/dvizhshop"
