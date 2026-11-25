@@ -25,11 +25,12 @@
 ```
 
 - **Frontend** — статический `public/`, данные берёт из API.
-- **Backend** — `server.mjs` на встроенном `node:http`, без внешних зависимостей.
-- **База** — SQLite через встроенный `node:sqlite` (Node 22+), файл `data/shop.db`, режим WAL.
-- **Бот** — `bot.mjs`, работает с той же базой напрямую и мгновенно меняет то, что видит покупатель.
-- **Фото** — `data/uploads/`, отдаются по `/uploads/...`.
-- **Уведомления о заказах** — сервер отправляет сообщение администратору в Telegram сразу после заявки.
+- **Backend (локально)** — `server.mjs` на встроенном `node:http`, без внешних зависимостей.
+- **Backend (публично, бесплатно)** — `worker/` на Cloudflare Workers + D1 + R2, пока сайт на GitHub Pages.
+- **База** — SQLite через встроенный `node:sqlite` (Node 22+) либо D1 в облаке.
+- **Бот** — `bot.mjs` локально или `worker/src/bot.mjs` в облаке; оба меняют то, что видит покупатель.
+- **Фото** — `data/uploads/` локально или R2 в облаке, отдаются по `/uploads/...`.
+- **Уведомления о заказах** — отдельный модуль: заявка сохраняется, ставится в очередь и уходит владельцу в Telegram.
 
 ---
 
@@ -104,15 +105,42 @@ Windows-скрипты: `start-shop.bat` и `start-bot.bat` — при перв�
 | 🎨 Коллекции | создать, переименовать, скрыть/показать, удалить |
 | 🖼 Баннеры | создать, загрузить фото, включить/выключить, удалить |
 | 📝 Тексты сайта | бейдж, заголовок, подзаголовок, объявление, подвал, ссылка «Связаться» |
-| 🛒 Заказы | уведомление о новом заказе, список и фильтры, состав/размер/цвет/кол-во, контакты, смена статуса |
+| 🛒 Заказы | уведомление о новом заказе, список и фильтры, состав/размер/цвет/кол-во, контакты, доставка/самовывоз, смена статуса |
 
-Статусы заказа: `новый → подтверждён → отправлен → завершён` (или `отменён`).
+Статусы заказа: `новая → подтверждён → в обработке → подготовлен → выполнен` (или `отклонён`).
 
 При оформлении заказа на сайте:
 1. сервер проверяет товары и остатки **по базе** (цены с клиента игнорируются);
-2. создаёт заказ и позиции в транзакции;
-3. уменьшает склад;
-4. отправляет уведомление администратору в Telegram.
+2. один и тот же запрос с тем же `idempotency_key` не создаёт второй заказ;
+3. создаёт заказ и позиции в транзакции, уменьшает склад;
+4. ставит уведомление в очередь и отправляет его владельцу в Telegram;
+5. если покупатель нажал «Получать статус в Telegram» и запустил бота, ему приходят уведомления о смене статуса.
+
+Пример уведомления владельцу:
+
+```
+🛍 НОВЫЙ ЗАКАЗ — DVIZH SHOP
+
+📦 Заказ №: 00125
+👤 Покупатель: Александр
+🔗 Telegram: @username
+
+📋 Товары:
+1. Худи DVIZH
+   📏 Размер: L
+   🎨 Цвет: Чёрный
+   🔢 Количество: 1
+   💶 Цена: 45 €
+
+💰 Общая сумма: 45 €
+📍 Способ получения: Доставка
+📞 Контакт покупателя: @username
+🕒 Время оформления: 23.11.2026, 14:35 (Берлин)
+
+Статус: 🆕 Новая заявка
+```
+
+Кнопки: `☑ Принять заявку`, `❌ Отклонить заявку`, `📋 Посмотреть подробности`, `📦 Отметить как выполненную`.
 
 ---
 
@@ -128,6 +156,14 @@ dvizhshop/
 │  ├─ envfile.mjs          # безопасная запись .env и права доступа
 │  ├─ setup.mjs            # проверка токена и сохранение настроек
 │  └─ telegram.mjs         # Bot API, скачивание фото, уведомления
+├─ worker/
+│  ├─ src/index.mjs        # Cloudflare Worker: API, webhook, очередь уведомлений
+│  ├─ src/db.mjs           # D1: схема, каталог, заказы, admin CRUD
+│  ├─ src/telegram.mjs     # Bot API и формат уведомления о заявке
+│  ├─ src/notify.mjs       # отдельный модуль уведомлений и повторных попыток
+│  └─ src/bot.mjs          # личный Telegram-бот владельца (webhook)
+├─ wrangler.toml           # Cloudflare: D1, R2, cron
+├─ .github/workflows/pages.yml  # публикация public/ на GitHub Pages
 ├─ public/
 │  ├─ index.html           # магазин
 │  ├─ styles.css           # фирменный стиль
@@ -162,9 +198,15 @@ POST /api/orders
   "customer_name": "Имя",
   "contact": "@username",
   "note": "комментарий",
+  "delivery": "delivery",
+  "idempotency_key": "f3f0c2a1-...",
   "items": [{ "productId": 1, "size": "M", "color": "Чёрный", "qty": 2 }]
 }
 ```
+
+`delivery`: `delivery` (доставка) или `pickup` (самовывоз).
+`idempotency_key`: необязательный ключ повтора. Повторный запрос с тем же ключом
+возвращает уже созданный заказ и не отправляет уведомление второй раз.
 
 Ответ: `{ "ok": true, "order": { "public_id": "...", "total": 5000 } }`.
 
@@ -172,7 +214,7 @@ POST /api/orders
 
 ## Admin API
 
-Все методы требуют заголовок `X-Admin-Token: <ADMIN_TOKEN>` (или `?token=`).
+Все методы требуют заголовок `X-Admin-Token: <ADMIN_TOKEN>`.
 
 ```
 GET    /api/admin/summary
@@ -188,10 +230,14 @@ PATCH  /api/admin/banners/:id       DELETE /api/admin/banners/:id
 GET    /api/admin/orders?status=new
 GET    /api/admin/orders/:id        PATCH  /api/admin/orders/:id  { "status": "confirmed" }
 GET    /api/admin/settings          PATCH  /api/admin/settings
+POST   /api/admin/telegram/webhook  # регистрация webhook + сохранение username бота
+POST   /api/admin/telegram/retry    # повтор неотправленных уведомлений
 ```
 
-`ADMIN_TOKEN` нужен только для внешних интеграций. Бот работает с базой напрямую,
-поэтому при пустом `ADMIN_TOKEN` admin API просто отключён, а бот продолжает работать.
+`ADMIN_TOKEN` нужен только для внешних интеграций и registration webhook. Бот работает с базой
+через тот же Worker, поэтому при пустом `ADMIN_TOKEN` admin API отключён, а бот продолжает работать.
+Смена статуса через бот или через admin API отправляет уведомление покупателю, если он запустил
+бота по ссылке из экрана подтверждения заказа.
 
 ---
 
@@ -213,10 +259,77 @@ npm run publish
 
 ## Деплой
 
-Нужен постоянно работающий процесс (VPS, домашний сервер, любой хостинг с Node).
-GitHub Pages/статический хостинг не подойдут: нужен backend и запись в базу.
+### Вариант A — GitHub Pages + Cloudflare Workers (бесплатно, без своего ПК)
 
-### Вариант A — Docker Compose
+Сайт живёт на GitHub Pages, а приём заказов, база, фото и Telegram-бот — на Cloudflare.
+Ваш компьютер может быть выключен: всё работает в облаке.
+
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/dvizhso/dvizhshop)
+
+1. Нажмите кнопку и авторизуйте Cloudflare. Он сам создаст Worker, базу D1
+   `dvizh-shop-db` и хранилище фото R2 `dvizh-shop-photos` (см. `wrangler.toml`).
+2. В Worker → **Settings → Variables and Secrets** добавьте секреты:
+   - `TELEGRAM_BOT_TOKEN` — токен бота от @BotFather;
+   - `ADMIN_ID` — только ваш Telegram ID (бот никого больше не пустит);
+   - `ADMIN_TOKEN` — длинная случайная строка для admin API;
+   - `TELEGRAM_WEBHOOK_SECRET` — длинная случайная строка для проверки webhook.
+   Токен хранится только в секретах Cloudflare, в коде сайта его нет.
+3. Зарегистрируйте webhook (один раз):
+
+   ```bash
+   curl -X POST https://<worker>.workers.dev/api/admin/telegram/webhook \
+     -H "X-Admin-Token: <ADMIN_TOKEN>"
+   ```
+
+   Worker сам вызовет `setWebhook` с секретным заголовком и сохранит username бота —
+   он понадобится сайту для ссылки «Получать статус в Telegram».
+4. В GitHub → **Settings → Secrets and variables → Actions → Variables** добавьте
+   `SHOP_API_BASE = https://<worker>.workers.dev`.
+5. GitHub → **Settings → Pages → Source: GitHub Actions**. После пуша в `main`
+   workflow `.github/workflows/pages.yml` соберёт сайт и подставит адрес API.
+6. Откройте `https://dvizhso.github.io/dvizhshop/`, оформите тестовую заявку —
+   в Telegram придёт сообщение с кнопками «Принять / Отклонить / Подробности / Выполнено».
+7. На экране «Заявка отправлена» покупатель может нажать «Получать статус в Telegram».
+   Это откроет того же бота со ссылкой `/start <номер заказа>`; после запуска бот
+   запомнит чат и будет присылать статусы только по этому заказу. Административные
+   команды посторонним по-прежнему недоступны.
+
+Если Cloudflare не смог создать D1/R2 автоматически (старая версия Wrangler), создайте их
+вручную и впишите идентификаторы в `wrangler.toml`:
+
+```bash
+npx wrangler d1 create dvizh-shop-db
+npx wrangler r2 bucket create dvizh-shop-photos
+```
+
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "dvizh-shop-db"
+database_id = "<id из вывода команды>"
+```
+
+Затем повторите деплой. Схема таблиц создаётся автоматически при первом запросе к Worker.
+
+Если Telegram временно недоступен, заявка всё равно сохраняется, а Worker повторяет
+отправку по cron-расписанию каждые 5 минут (`notify_queue`). Вручную повторить очередь:
+
+```bash
+curl -X POST https://<worker>.workers.dev/api/admin/telegram/retry \
+  -H "X-Admin-Token: <ADMIN_TOKEN>"
+```
+
+Проверка Worker локально:
+
+```bash
+npm run test:worker
+```
+
+### Вариант B — свой сервер / VPS
+
+Нужен постоянно работающий процесс (VPS, домашний сервер, любой хостинг с Node).
+
+#### Docker Compose
 
 ```bash
 cp .env.example .env    # заполнить
@@ -226,7 +339,7 @@ docker compose exec shop node --experimental-sqlite scripts/seed.mjs   # оди�
 
 `data/` монтируется в контейнеры, поэтому база и фото сохраняются между перезапусками.
 
-### Вариант B — VPS + systemd
+#### VPS + systemd
 
 ```ini
 # /etc/systemd/system/dvizh-shop.service
@@ -267,9 +380,11 @@ tar -czf backup-$(date +%F).tar.gz data/
 ## Безопасность
 
 - `.env` и `data/` в `.gitignore`; токены не попадают в репозиторий.
-- Бот отвечает только `ADMIN_ID` (или владельцу, закрепившемуся первым `/start`).
+- Бот (локальный) отвечает только `ADMIN_ID` либо владельцу, закрепившемуся первым `/start`.
+  Облачный бот `worker/src/bot.mjs` принимает **только** `ADMIN_ID` из секретов — без исключений.
 - `ADMIN_TOKEN` сравнивается за постоянное время; без него admin API недоступен.
-- Заявки принимаются с серверной проверкой цен, остатков и лимитом по IP.
+- Webhook Telegram проверяет заголовок `X-Telegram-Bot-Api-Secret-Token`.
+- Заявки принимаются с серверной проверкой цен, остатков и лимитом по IP (5 за 10 минут).
 - Все пользовательские строки экранируются: в боте — HTML, на сайте — `textContent`.
 - После настройки перевыпустите токены, которые передавались в переписке.
 

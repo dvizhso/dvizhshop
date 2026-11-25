@@ -117,18 +117,39 @@ function saveUploadedBase64(data, mime) {
 }
 
 function orderText(order) {
-  const lines = [
-    `🛒 <b>Новый заказ ${escapeHtml(order.public_id)}</b>`,
-    '',
-    `👤 ${escapeHtml(order.customer_name)}`,
-    order.contact ? `📞 ${escapeHtml(order.contact)}` : '📞 контакт не указан',
-    order.note ? `💬 ${escapeHtml(order.note)}` : '',
-    '',
-    ...order.items.map((i) => `• ${escapeHtml(i.name)}${i.size ? ` / ${escapeHtml(i.size)}` : ''}${i.color ? ` / ${escapeHtml(i.color)}` : ''} × ${i.qty} — ${money(i.price_cents * i.qty)} €`),
-    '',
-    `<b>Итого: ${money(order.total_cents)} €</b>`,
-  ];
-  return lines.filter((x) => x !== '').join('\n');
+  const labels = {
+    new: '🆕 Новая заявка', confirmed: '✅ Принята', shipped: '📦 Отправлена',
+    done: '🏁 Выполнена', cancelled: '❌ Отклонена',
+  };
+  const items = Array.isArray(order.items) ? order.items : [];
+  const lines = ['🛍 <b>НОВАЯ ЗАЯВКА — DVIZH SHOP</b>', ''];
+  if (order.public_id) lines.push(`🧾 Номер: <code>${escapeHtml(order.public_id)}</code>`);
+  lines.push(`👤 Имя: ${escapeHtml(order.customer_name)}`);
+  items.forEach((i) => {
+    lines.push(`📦 Товар: ${escapeHtml(i.name)}`);
+    lines.push(`🎨 Цвет: ${escapeHtml(i.color || '—')}`);
+    lines.push(`📏 Размер: ${escapeHtml(i.size || '—')}`);
+    lines.push(`🔢 Количество: ${i.qty}`);
+    lines.push(`💶 Цена: ${money(i.price_cents * i.qty)} €`);
+  });
+  const contact = String(order.contact || '').trim();
+  lines.push(`📞 Контакт: ${contact ? escapeHtml(contact) : 'не указан'}`);
+  if (order.note) lines.push(`💬 Комментарий: ${escapeHtml(order.note)}`);
+  if (items.length > 1) lines.push(`💰 Сумма: <b>${money(order.total_cents)} €</b>`);
+  lines.push('', `Статус: <b>${labels[order.status] || labels.new}</b>`);
+  return lines.join('\n');
+}
+
+function orderKeyboard(order) {
+  const id = Number(order.id) || 0;
+  return {
+    inline_keyboard: [
+      [{ text: '☑ Принять заявку', callback_data: `ost:${id}:confirmed` }],
+      [{ text: '❌ Отклонить заявку', callback_data: `ost:${id}:cancelled` }],
+      [{ text: '📋 Посмотреть подробности', callback_data: `o:${id}` }],
+      [{ text: '📦 Отметить как выполненную', callback_data: `ost:${id}:done` }],
+    ],
+  };
 }
 
 const server = createServer(async (req, res) => {
@@ -156,9 +177,11 @@ const server = createServer(async (req, res) => {
           customer_name: body.customer_name,
           contact: body.contact,
           note: body.note,
+          delivery: body.delivery,
+          idempotency_key: body.idempotency_key,
           items: body.items,
         });
-        notifyAdmin(orderText(order), process.env.ADMIN_ID || getSetting('admin_id')).catch(() => {});
+        notifyAdmin(orderText(order), process.env.ADMIN_ID || getSetting('admin_id'), orderKeyboard(order)).catch(() => {});
         return json(res, 201, { ok: true, order: { public_id: order.public_id, total: order.total_cents } });
       } catch (e) {
         return json(res, 400, { error: e.message });

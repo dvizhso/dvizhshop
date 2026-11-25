@@ -7,6 +7,15 @@
 
   const $ = (id) => document.getElementById(id);
   const CART_KEY = 'dvizh_cart_v1';
+  const ORDER_KEY = 'dvizh_order_key_v1';
+  const API_BASE = String(window.SHOP_API_BASE || '').replace(/\/+$/, '');
+  const apiUrl = (path) => `${API_BASE}${path}`;
+  const assetUrl = (path) => {
+    const value = String(path || '');
+    if (!value) return '';
+    if (/^https?:\/\//i.test(value) || value.startsWith('data:')) return value;
+    return `${API_BASE}/${value.replace(/^\/+/, '')}`;
+  };
   const overlays = [];
   let lastFocus = null;
 
@@ -23,6 +32,7 @@
     qty: 1,
     photo: 0,
     sending: false,
+    idempotencyKey: '',
   };
 
   /* ---------------- helpers ---------------- */
@@ -131,6 +141,34 @@
     try { localStorage.setItem(CART_KEY, JSON.stringify(state.cart)); } catch { /* приватный режим */ }
   }
 
+  function makeIdempotencyKey() {
+    try {
+      if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+    } catch { /* старый браузер */ }
+    const bytes = new Uint8Array(16);
+    (window.crypto || {}).getRandomValues?.(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('') || `k${Date.now()}`;
+  }
+
+  // Повторная отправка той же корзины использует тот же ключ — сервер не создаст дубль.
+  function idempotencyKeyForCart() {
+    const fingerprint = JSON.stringify(state.cart
+      .map((i) => [i.productId, i.size, i.color, i.qty])
+      .sort((a, b) => String(a).localeCompare(String(b))));
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(ORDER_KEY) || 'null');
+      if (saved && saved.fingerprint === fingerprint && saved.key) return saved.key;
+    } catch { /* приватный режим */ }
+    const key = makeIdempotencyKey();
+    try { sessionStorage.setItem(ORDER_KEY, JSON.stringify({ fingerprint, key })); } catch { /* ignore */ }
+    return key;
+  }
+
+  function resetOrderKey() {
+    state.idempotencyKey = '';
+    try { sessionStorage.removeItem(ORDER_KEY); } catch { /* ignore */ }
+  }
+
   function findProduct(id) {
     return (state.catalog?.products || []).find((p) => p.id === Number(id)) || null;
   }
@@ -203,7 +241,11 @@
       collections: Array.isArray(data.collections) ? data.collections.map((c) => ({
         id: num(c.id), name: String(c.name || ''), slug: String(c.slug || ''), description: String(c.description || ''),
       })) : [],
-      banners: Array.isArray(data.banners) ? data.banners : [],
+      banners: Array.isArray(data.banners) ? data.banners.map((b) => ({
+        ...b,
+        image: assetUrl(b.image),
+        link: String(b.link || ''),
+      })) : [],
       products: Array.isArray(data.products) ? data.products.map((p) => ({
         id: num(p.id),
         name: String(p.name || ''),
@@ -216,7 +258,7 @@
         sizes: Array.isArray(p.sizes) ? p.sizes.filter(Boolean) : [],
         colors: Array.isArray(p.colors) ? p.colors.filter(Boolean) : [],
         stock: num(p.stock),
-        photos: Array.isArray(p.photos) ? p.photos.filter(Boolean) : [],
+        photos: Array.isArray(p.photos) ? p.photos.filter(Boolean).map(assetUrl) : [],
       })) : [],
     };
   }
@@ -224,7 +266,7 @@
   async function loadCatalog({ silent = false } = {}) {
     if (!silent) showSkeletons();
     try {
-      const res = await fetch('/api/catalog', { headers: { Accept: 'application/json' }, cache: 'no-store' });
+      const res = await fetch(apiUrl('/api/catalog'), { headers: { Accept: 'application/json' }, cache: 'no-store' });
       if (!res.ok) throw new Error('HTTP ' + res.status);
       const raw = await res.text();
       if (raw === state.catalogRaw) {
@@ -741,13 +783,18 @@
     btn.textContent = 'ОТПРАВЛЯЕМ…';
 
     try {
-      const res = await fetch('/api/orders', {
+      const delivery = document.querySelector('input[name="delivery"]:checked')?.value || 'delivery';
+      const idempotencyKey = idempotencyKeyForCart();
+      state.idempotencyKey = idempotencyKey;
+      const res = await fetch(apiUrl('/api/orders'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
         body: JSON.stringify({
           customer_name: name,
           contact,
           note,
+          delivery,
+          idempotency_key: idempotencyKey,
           items: state.cart.map((i) => ({ productId: i.productId, size: i.size, color: i.color, qty: i.qty })),
         }),
       });
@@ -759,12 +806,26 @@
 
       state.cart = [];
       saveCart();
+      resetOrderKey();
       renderCart();
       $('checkoutForm').reset();
       closeOverlay('checkoutOverlay', { silent: true });
 
       $('successId').textContent = publicId ? `ЗАКАЗ ${publicId} · ${fmtMoney(total)}` : fmtMoney(total);
       $('successText').textContent = 'Администратор получил заявку и свяжется с тобой, чтобы подтвердить наличие, доставку и оплату.';
+      const botLink = $('successBot');
+      const botHint = $('successHint');
+      const botUsername = String(state.catalog?.settings?.bot_username || '').replace(/^@/, '');
+      if (botLink && botHint) {
+        if (botUsername && publicId) {
+          botLink.href = `https://t.me/${encodeURIComponent(botUsername)}?start=${encodeURIComponent(publicId)}`;
+          botLink.hidden = false;
+          botHint.hidden = false;
+        } else {
+          botLink.hidden = true;
+          botHint.hidden = true;
+        }
+      }
       openOverlay('successOverlay', '#successClose');
 
       // обновляем остатки на сайте

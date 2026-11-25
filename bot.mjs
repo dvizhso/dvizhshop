@@ -422,7 +422,7 @@ async function onCallback(cq) {
     const id = Number(data.split(':')[1]);
     return showOrder(chatId, cq, id);
   }
-  if (/^ost:\d+:(new|confirmed|shipped|done|cancelled)$/.test(data)) {
+  if (/^ost:\d+:(new|confirmed|processing|prepared|shipped|done|cancelled)$/.test(data)) {
     const [, id, status] = data.split(':');
     try {
       const o = db.setOrderStatus(id, status);
@@ -533,12 +533,13 @@ async function showOrder(chatId, cq, id) {
   const o = db.getOrder(id);
   if (!o) return cq ? edit(cq, 'Заказ не найден', kb([backBtn('ord:all:0')])) : reply(chatId, 'Заказ не найден');
   const lines = [
-    `🧾 <b>Заказ №${o.id}</b> · <code>${escapeHtml(o.public_id)}</code>`,
+    `🧾 <b>Заказ №${String(o.id).padStart(5, '0')}</b> · <code>${escapeHtml(o.public_id)}</code>`,
     `Статус: <b>${db.STATUS_LABELS[o.status] || o.status}</b>`,
     `Создан: ${escapeHtml(o.created_at)} UTC`,
     '',
     `👤 ${escapeHtml(o.customer_name)}`,
     o.contact ? `📞 ${escapeHtml(o.contact)}` : '📞 контакт не указан',
+    o.delivery ? `📍 ${o.delivery === 'pickup' ? 'Самовывоз' : 'Доставка'}` : '',
     o.note ? `💬 ${escapeHtml(o.note)}` : '',
     '',
     ...o.items.map((i) => `• ${escapeHtml(i.name)}${i.size ? ` / ${escapeHtml(i.size)}` : ''}${i.color ? ` / ${escapeHtml(i.color)}` : ''} × ${i.qty} — ${money(i.price_cents * i.qty)} €`),
@@ -546,9 +547,9 @@ async function showOrder(chatId, cq, id) {
     `<b>Итого: ${money(o.total_cents)} €</b>`,
   ].filter((x) => x !== '');
   const markup = kb([
-    [{ text: '🆕 Новый', callback_data: `ost:${o.id}:new` }, { text: '✅ Подтвердить', callback_data: `ost:${o.id}:confirmed` }],
-    [{ text: '📦 Отправлен', callback_data: `ost:${o.id}:shipped` }, { text: '🏁 Завершён', callback_data: `ost:${o.id}:done` }],
-    [{ text: '❌ Отменить', callback_data: `ost:${o.id}:cancelled` }],
+    [{ text: '☑ Принять', callback_data: `ost:${o.id}:confirmed` }, { text: '❌ Отклонить', callback_data: `ost:${o.id}:cancelled` }],
+    [{ text: '⚙️ В обработке', callback_data: `ost:${o.id}:processing` }, { text: '📦 Подготовлен', callback_data: `ost:${o.id}:prepared` }],
+    [{ text: '🏁 Выполнен', callback_data: `ost:${o.id}:done` }, { text: '🆕 Новая', callback_data: `ost:${o.id}:new` }],
     backBtn('ord:all:0', '← К заказам'),
   ]);
   if (cq) return edit(cq, lines.join('\n'), markup);

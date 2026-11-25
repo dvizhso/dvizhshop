@@ -12,6 +12,7 @@
     "setup": "node scripts/setup-web.mjs",
     "setup:cli": "node scripts/setup.mjs",
     "publish": "node scripts/publish-github.mjs",
-    "test": "node --experimental-sqlite test/bot-smoke.mjs"
+    "test": "node --experimental-sqlite test/bot-smoke.mjs",
+    "test:worker": "node --experimental-sqlite test/worker-smoke.mjs"
   }
 }

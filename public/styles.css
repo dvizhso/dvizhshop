@@ -1128,6 +1128,29 @@ a { color: inherit; }
 }
 .field input:focus { border-color: var(--yellow); }
 .field input.invalid { border-color: var(--red); }
+.delivery-options { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.delivery-options label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 11px 12px;
+  border: 1px solid #383838;
+  border-radius: 3px;
+  background: #161612;
+  cursor: pointer;
+  transition: border-color .16s;
+}
+.delivery-options label:has(input:checked) { border-color: var(--yellow); }
+.delivery-options input { width: auto; margin: 0; accent-color: var(--yellow); }
+.delivery-options span {
+  font-size: 12px;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--ink);
+  font-weight: 700;
+}
+.success-bot { width: 100%; margin: 0 0 10px; }
+.success-hint { margin: 0 0 14px !important; font-size: 10.5px !important; }
 .form-error {
   border: 1px solid #6d2a22;
   background: #2a1210;

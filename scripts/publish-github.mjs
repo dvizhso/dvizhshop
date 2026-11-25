@@ -13,6 +13,7 @@ const MESSAGE = process.env.GITHUB_MESSAGE || 'DVIZH FREIBURG: shop + Telegram a
 const INCLUDE_FILES = [
   'README.md',
   'package.json',
+  'wrangler.toml',
   'server.mjs',
   'bot.mjs',
   '.gitignore',
@@ -23,8 +24,8 @@ const INCLUDE_FILES = [
   'start-shop.bat',
   'start-bot.bat',
 ];
-const INCLUDE_DIRS = ['lib', 'public', 'scripts', 'test'];
-const SKIP = /(^|\/)(data|node_modules|\.git|\.env$|.*\.png$|.*\.log$)/;
+const INCLUDE_DIRS = ['lib', 'public', 'scripts', 'test', 'worker', '.github'];
+const SKIP = /(^|\/)(data|node_modules|\.git)(\/|$)|(^|\/)\.env$|\.png$|\.log$/;
 
 function askHidden(prompt) {
   return new Promise((resolve) => {

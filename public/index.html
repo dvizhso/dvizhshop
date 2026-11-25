@@ -9,16 +9,16 @@
 <meta property="og:title" content="DVIZH FREIBURG — Community Goods">
 <meta property="og:description" content="Официальный мерч DVIZH FREIBURG. Выбирай вещь, размер и цвет.">
 <meta property="og:type" content="website">
-<meta property="og:image" content="/favicon.svg">
-<link rel="icon" href="/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/styles.css">
+<meta property="og:image" content="favicon.svg">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 <div class="grain" aria-hidden="true"></div>
 
 <div class="app">
   <header class="site-head">
-    <a class="brand" href="/" aria-label="DVIZH FREIBURG — на главную">
+    <a class="brand" href="./" aria-label="DVIZH FREIBURG — на главную">
       <span class="brand-main">DVIZH</span>
       <span class="brand-city">FREIBURG</span>
       <span class="brand-r">®</span>
@@ -178,6 +178,13 @@
         <span>Telegram или телефон</span>
         <input id="customerContact" name="contact" placeholder="@username / +49…" maxlength="120" autocomplete="tel">
       </label>
+      <div class="field">
+        <span>Способ получения</span>
+        <div class="delivery-options">
+          <label><input type="radio" name="delivery" value="delivery" checked> <span>Доставка</span></label>
+          <label><input type="radio" name="delivery" value="pickup"> <span>Самовывоз</span></label>
+        </div>
+      </div>
       <label class="field">
         <span>Комментарий</span>
         <input id="customerNote" name="note" placeholder="Например, удобное время для связи" maxlength="500">
@@ -196,12 +203,15 @@
     <h2 id="successTitle">Заявка отправлена</h2>
     <p id="successText">Администратор получил заказ и свяжется с тобой.</p>
     <div class="success-id" id="successId"></div>
+    <a class="btn btn-ghost success-bot" id="successBot" href="#" target="_blank" rel="noopener" hidden>ПОЛУЧАТЬ СТАТУС В TELEGRAM</a>
+    <p class="success-hint" id="successHint" hidden>Нажми кнопку и запусти бота — придёт статус заказа и уведомления об изменениях.</p>
     <button class="btn btn-primary" id="successClose" type="button">ПОНЯТНО</button>
   </section>
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
-<script src="/app.js" defer></script>
+<script src="config.js"></script>
+<script src="app.js" defer></script>
 </body>
 </html>
