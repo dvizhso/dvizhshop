@@ -125,11 +125,14 @@ CREATE INDEX IF NOT EXISTS idx_hits_ip ON order_hits(ip, created_at);
 CREATE INDEX IF NOT EXISTS idx_notify_pending ON notify_queue(sent_at, attempts, id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_orders_idem ON orders(idempotency_key);
 CREATE INDEX IF NOT EXISTS idx_orders_public ON orders(public_id);
-CREATE TRIGGER IF NOT EXISTS prevent_negative_stock
+`;
+
+// D1 не принимает несколько SQL-выражений в одном prepare(), поэтому триггер
+// выполняется отдельно (внутри него есть своя «;»).
+const STOCK_TRIGGER = `CREATE TRIGGER IF NOT EXISTS prevent_negative_stock
 BEFORE UPDATE OF stock ON products
 WHEN NEW.stock < 0
-BEGIN SELECT RAISE(ABORT, 'out_of_stock'); END;
-`;
+BEGIN SELECT RAISE(ABORT, 'out_of_stock'); END`;
 
 const SEED_PRODUCTS = [
   {
@@ -178,7 +181,11 @@ export function ensureSchema(env) {
 
 async function init(env) {
   if (!env.DB) throw new Error('D1 binding DB не настроен');
-  await env.DB.exec(SCHEMA);
+  for (const statement of SCHEMA.split(';')) {
+    const sql = statement.trim();
+    if (sql) await env.DB.prepare(sql).run();
+  }
+  await env.DB.prepare(STOCK_TRIGGER).run();
   // Мягкие миграции для баз, созданных до появления новых колонок.
   for (const sql of [
     'ALTER TABLE orders ADD COLUMN tg_message_id INTEGER',
