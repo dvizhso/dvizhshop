@@ -413,6 +413,14 @@ export async function deleteBanner(env, id) {
 }
 
 // --- каталог ---------------------------------------------------------------
+// Фото из Telegram отдаются через Worker: в публичном каталоге только /photos/:id.
+export function photoUrl(photo) {
+  const path = String(photo?.path || '');
+  if (path.startsWith('tg:')) return `/photos/${photo.id}`;
+  if (path.startsWith('uploads/')) return `/${path}`;
+  return path ? '/' + path.replace(/^\/+/, '') : '';
+}
+
 export async function publicCatalog(env) {
   await ensureSchema(env);
   const settings = await getSettings(env);
@@ -436,7 +444,7 @@ export async function publicCatalog(env) {
       sizes: String(p.sizes || '').split(',').map((x) => x.trim()).filter(Boolean),
       colors: String(p.colors || '').split(',').map((x) => x.trim()).filter(Boolean),
       stock: p.stock,
-      photos: (p.photos || []).map((ph) => '/' + ph.path),
+      photos: (p.photos || []).map((ph) => photoUrl(ph)),
     })),
     banners: banners.map((b) => ({
       id: b.id, title: b.title, subtitle: b.subtitle, link: b.link,

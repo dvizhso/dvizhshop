@@ -96,6 +96,25 @@ async function deletePhotoObject(env, path) {
   try { await env.BUCKET.delete(String(path).replace(/^\/+/, '')); } catch { /* уже нет */ }
 }
 
+// Фото без R2: файл хранится в Telegram, а токен остаётся в секретах Worker.
+async function telegramPhotoResponse(env, fileId) {
+  const file = await tg(env, 'getFile', { file_id: fileId });
+  const filePath = String(file?.file_path || '');
+  if (!filePath) return json({ error: 'Фото Telegram недоступно' }, 502);
+  const res = await fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${filePath}`);
+  if (!res.ok) return json({ error: 'Не удалось загрузить фото из Telegram' }, 502);
+  const type = /\.png$/i.test(filePath) ? 'image/png'
+    : /\.webp$/i.test(filePath) ? 'image/webp' : 'image/jpeg';
+  return new Response(res.body, {
+    headers: {
+      'Content-Type': type,
+      'Cache-Control': 'public, max-age=86400',
+      'X-Content-Type-Options': 'nosniff',
+      'Access-Control-Allow-Origin': '*',
+    },
+  });
+}
+
 async function handleAdmin(request, env, url, path) {
   if (!adminAuthorized(request, env)) return json({ error: 'Не авторизован' }, 401);
   const parts = path.replace('/api/admin/', '').split('/');
@@ -147,6 +166,10 @@ async function handleAdmin(request, env, url, path) {
       const product = await getProduct(env, parts[1]);
       if (!product) return json({ error: 'Товар не найден' }, 404);
       const body = await readJson(request);
+      if (body.file_id) {
+        const photo = await addProductPhoto(env, product.id, `tg:${String(body.file_id).slice(0, 200)}`);
+        return json({ photo }, 201);
+      }
       try {
         const key = await savePhoto(env, body.data, body.mime);
         const photo = await addProductPhoto(env, product.id, key);
@@ -295,6 +318,26 @@ export default {
           if (error instanceof OutOfStockError) return json({ error: error.message }, 409);
           return json({ error: error.message || 'Не удалось оформить заказ' }, 400);
         }
+      }
+
+      if (path.startsWith('/photos/') && method === 'GET') {
+        const photo = await getPhoto(env, path.slice('/photos/'.length));
+        if (!photo) return json({ error: 'Фото не найдено' }, 404);
+        const stored = String(photo.path || '');
+        if (stored.startsWith('tg:')) return await telegramPhotoResponse(env, stored.slice(3));
+        if (stored.startsWith('uploads/') && photosEnabled(env)) {
+          const object = await env.BUCKET.get(stored);
+          if (!object) return json({ error: 'Фото не найдено' }, 404);
+          return new Response(object.body, {
+            headers: {
+              'Content-Type': object.httpMetadata?.contentType || 'application/octet-stream',
+              'Cache-Control': 'public, max-age=31536000, immutable',
+              'X-Content-Type-Options': 'nosniff',
+              'Access-Control-Allow-Origin': '*',
+            },
+          });
+        }
+        return json({ error: 'Фото недоступно' }, 503);
       }
 
       if (path.startsWith('/uploads/') && method === 'GET') {

@@ -284,26 +284,13 @@ async function handlePhoto(env, message, session) {
   if (!session || session.kind !== 'photo') return;
   const photos = Array.isArray(message.photo) ? message.photo : [];
   if (!photos.length) return;
-  // Хранилище необязательно. Без биндинга BUCKET бот не падает: фото просто
-  // не сохраняются, а остальной функционал продолжает работать.
-  if (!env.BUCKET) {
-    await reply(env, message.chat.id,
-      '⚠️ Хранение фото не подключено. Товар создан без фото; остальные функции работают.');
-    return;
-  }
+  // R2 не нужен: сохраняем Telegram file_id, Worker отдаёт фото через /photos/:id.
   const best = photos[photos.length - 1];
   try {
+    if (best.file_size && Number(best.file_size) > 10 * 1024 * 1024) throw new Error('Фото больше 10 МБ');
     const file = await tg(env, 'getFile', { file_id: best.file_id });
     if (!file?.file_path) throw new Error('Telegram не вернул file_path');
-    const res = await fetch(`https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${file.file_path}`);
-    if (!res.ok) throw new Error('Не удалось скачать фото');
-    const bytes = new Uint8Array(await res.arrayBuffer());
-    if (bytes.length > 6 * 1024 * 1024) throw new Error('Фото больше 6 МБ');
-    const ext = /\.(png|webp|jpg|jpeg)$/i.exec(file.file_path)?.[0]?.toLowerCase() || '.jpg';
-    const mime = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
-    const key = `uploads/p-${Date.now()}-${crypto.randomUUID().slice(0, 8)}${ext === '.jpeg' ? '.jpg' : ext}`;
-    await env.BUCKET.put(key, bytes, { httpMetadata: { contentType: mime } });
-    const photo = await addProductPhoto(env, session.productId, key);
+    const photo = await addProductPhoto(env, session.productId, `tg:${best.file_id}`);
     await reply(env, message.chat.id,
       `✅ Фото добавлено (#${photo.id}). Отправьте ещё или нажмите «Готово».`,
       kb([[{ text: 'Готово', callback_data: `p:${session.productId}` }]]));

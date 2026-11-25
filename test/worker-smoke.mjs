@@ -52,6 +52,11 @@ const realFetch = globalThis.fetch;
 const telegram = [];
 let telegramDown = false;
 globalThis.fetch = async (url, options) => {
+  if (String(url).includes('api.telegram.org/file/bot')) {
+    return new Response(new Uint8Array([0xff, 0xd8, 0xff, 0xd9]), {
+      status: 200, headers: { 'content-type': 'image/jpeg' },
+    });
+  }
   if (String(url).includes('api.telegram.org')) {
     const body = JSON.parse(options?.body || '{}');
     const method = String(url).split('/').pop();
@@ -61,7 +66,9 @@ globalThis.fetch = async (url, options) => {
       });
     }
     telegram.push({ method, body });
-    const result = method === 'getMe' ? { id: 1, username: 'dvizh_test_bot' } : { message_id: telegram.length };
+    const result = method === 'getMe' ? { id: 1, username: 'dvizh_test_bot' }
+      : method === 'getFile' ? { file_id: body.file_id, file_path: 'photos/test.jpg' }
+        : { message_id: telegram.length };
     return new Response(JSON.stringify({ ok: true, result }), {
       status: 200, headers: { 'content-type': 'application/json' },
     });
@@ -305,13 +312,46 @@ try {
     headers: { 'X-Admin-Token': 'test-admin-token' },
     body: { data: photoData, mime: 'image/png' },
   });
-  // R2 не подключён: загрузка фото возвращает понятную ошибку, Worker не падает.
-  checks.photoUpload = photo.status === 503 && /Хранение фото не подключено/.test(photo.data.error || '');
+  // Без R2 загрузка base64-фото возвращает понятную ошибку, но file_id работает.
+  checks.photoBase64NoR2 = photo.status === 503 && /Хранение фото не подключено/.test(photo.data.error || '');
   const photosInDb = sqlite.prepare('SELECT COUNT(*) AS c FROM product_photos').get();
   checks.noPhotoRecords = Number(photosInDb.c) === 0;
 
   const served = await call('/uploads/test.jpg');
-  checks.photoServed = served.status === 503 && /Хранение фото не подключено/.test(served.data.error || '');
+  checks.photoServedNoBucket = served.status === 503 && /Хранение фото не подключено/.test(served.data.error || '');
+
+  const tgPhoto = await call(`/api/admin/products/${created.data.product.id}/photos`, {
+    method: 'POST',
+    headers: { 'X-Admin-Token': 'test-admin-token' },
+    body: { file_id: 'TEST_FILE_ID_123' },
+  });
+  checks.photoViaFileId = tgPhoto.status === 201 && tgPhoto.data.photo.path === 'tg:TEST_FILE_ID_123';
+  const catalogWithPhoto = await call('/api/catalog');
+  const productWithPhoto = catalogWithPhoto.data.products.find((p) => p.id === created.data.product.id);
+  checks.photoUrlInCatalog = Boolean(productWithPhoto)
+    && productWithPhoto.photos.includes(`/photos/${tgPhoto.data.photo.id}`);
+  const image = await call(`/photos/${tgPhoto.data.photo.id}`);
+  checks.photoServedFromTelegram = image.status === 200 && image.headers['content-type'] === 'image/jpeg';
+
+  // Бот добавляет фото: сессия pp:<id>, затем сообщение с photo.
+  telegram.length = 0;
+  await webhook({
+    update_id: 10,
+    callback_query: {
+      id: 'cb-photo', from: { id: 111 }, data: `pp:${created.data.product.id}`,
+      message: { message_id: 20, chat: { id: 111 } },
+    },
+  });
+  await webhook({
+    update_id: 11,
+    message: {
+      message_id: 21, from: { id: 111 }, chat: { id: 111 },
+      photo: [{ file_id: 'BOT_FILE_ID_456', file_size: 1000 }],
+    },
+  });
+  const botPhotoRows = sqlite.prepare("SELECT path FROM product_photos WHERE path LIKE 'tg:%'").all();
+  checks.botPhotoSaved = botPhotoRows.some((r) => r.path === 'tg:BOT_FILE_ID_456');
+  checks.botPhotoReply = telegram.some((m) => m.method === 'sendMessage' && /Фото добавлено/.test(m.body.text || ''));
 
   const removed = await call(`/api/admin/products/${created.data.product.id}`, {
     method: 'DELETE',
