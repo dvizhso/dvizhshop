@@ -149,6 +149,7 @@ async function showMenu(env, chatId, cq = null, hello = false) {
     'Всё, что вы меняете здесь, сразу появляется на сайте.',
   ].filter(Boolean).join('\n');
   const markup = kb([
+    [{ text: '🛍 Открыть магазин', web_app: { url: env.SITE_URL || 'https://dvizhso.github.io/dvizhshop' } }],
     [{ text: '📦 Товары', callback_data: 'p:list:0' }, { text: '➕ Добавить товар', callback_data: 'p:add' }],
     [{ text: '🎨 Коллекции', callback_data: 'col:list' }, { text: '🛒 Заказы', callback_data: 'ord:new:0' }],
     [{ text: '📝 Тексты сайта', callback_data: 'set:list' }],
@@ -226,8 +227,8 @@ async function showOrders(env, chatId, cq = null, filter = 'all', page = 0) {
     { text: filter === 'confirmed' ? '• Подтв.' : 'Подтв.', callback_data: 'ord:confirmed:0' },
   ]);
   rows.push([
-    { text: filter === 'processing' ? '• В работе' : 'В работе', callback_data: 'ord:processing:0' },
-    { text: filter === 'prepared' ? '• Готовы' : 'Готовы', callback_data: 'ord:prepared:0' },
+    { text: filter === 'preparing' ? '• Готовятся' : 'Готовятся', callback_data: 'ord:preparing:0' },
+    { text: filter === 'ready' ? '• Готовы' : 'Готовы', callback_data: 'ord:ready:0' },
     { text: filter === 'done' ? '• Выполнены' : 'Выполнены', callback_data: 'ord:done:0' },
   ]);
   rows.push([
@@ -265,8 +266,9 @@ async function showOrder(env, chatId, id, cq = null) {
   if (!order) return cq ? edit(env, cq, 'Заказ не найден', kb([backBtn('ord:all:0')])) : reply(env, chatId, 'Заказ не найден');
   const buttons = [
     [{ text: '☑ Принять', callback_data: `ost:${id}:confirmed` }, { text: '❌ Отклонить', callback_data: `ost:${id}:cancelled` }],
-    [{ text: '⚙️ В обработке', callback_data: `ost:${id}:processing` }, { text: '📦 Подготовлен', callback_data: `ost:${id}:prepared` }],
-    [{ text: '🏁 Выполнен', callback_data: `ost:${id}:done` }, { text: '🆕 Новая', callback_data: `ost:${id}:new` }],
+    [{ text: '👨‍🍳 Готовится', callback_data: `ost:${id}:preparing` }, { text: '📦 Готов к получению', callback_data: `ost:${id}:ready` }],
+    [{ text: '🚚 Отправлен', callback_data: `ost:${id}:shipped` }, { text: '🏁 Завершён', callback_data: `ost:${id}:done` }],
+    [{ text: '🆕 Новый', callback_data: `ost:${id}:new` }],
     backBtn('ord:all:0', '← К заказам'),
   ];
   if (cq) return edit(env, cq, orderText(order), kb(buttons));
@@ -427,6 +429,10 @@ async function handleCallback(env, cq) {
   await tg(env, 'answerCallbackQuery', { callback_query_id: cq.id }).catch(() => {});
 
   if (data === 'noop') return;
+  if (data === 'shop:open') {
+    return reply(env, chatId, '🛍 DVIZH FREIBURG — открой магазин прямо в Telegram:',
+      kb([[{ text: '🛍 Открыть магазин', web_app: { url: env.SITE_URL || 'https://dvizhso.github.io/dvizhshop' } }]]));
+  }
   if (data === 'menu') { await clearSession(env, chatId); return showMenu(env, chatId, cq); }
 
   if (data === 'p:list:0' || data.startsWith('p:list:')) {
@@ -587,7 +593,7 @@ async function handleCallback(env, cq) {
     return showOrders(env, chatId, cq, filter, Number(page) || 0);
   }
   if (/^o:\d+$/.test(data)) return showOrder(env, chatId, Number(data.split(':')[1]), cq);
-  if (/^ost:\d+:(new|confirmed|processing|prepared|shipped|done|cancelled)$/.test(data)) {
+  if (/^ost:\d+:(new|confirmed|preparing|ready|shipped|done|cancelled|processing|prepared)$/.test(data)) {
     const [, id, status] = data.split(':');
     try {
       const order = await setOrderStatus(env, id, status);
@@ -610,9 +616,8 @@ async function handleBuyerStart(env, message, payload) {
     return reply(env, chatId, [
       '🛍 Это бот магазина DVIZH FREIBURG.',
       '',
-      'Чтобы получать статус заказа, оформи заказ на сайте и нажми',
-      '«Получать статус в Telegram» на экране подтверждения.',
-    ].join('\n'), kb([[{ text: '🛍 Открыть магазин', url: env.SITE_URL || 'https://dvizhso.github.io/dvizhshop' }]]));
+      'Чтобы получать статус заказа, оформи заказ в магазине.',
+    ].join('\n'), kb([[{ text: '🛍 Открыть магазин', web_app: { url: env.SITE_URL || 'https://dvizhso.github.io/dvizhshop' } }]]));
   }
   const order = await getOrderByPublicId(env, key);
   if (!order) return reply(env, chatId, 'Заказ не найден или ссылка устарела.');
@@ -646,8 +651,8 @@ export async function handleUpdate(env, update) {
     if (!update.callback_query && /^\/start(\s|$)/i.test(text)) {
       return handleBuyerStart(env, update.message, text.split(/\s+/).slice(1).join(' ')).catch(() => {});
     }
-    return reply(env, chatId, '🛍 Это бот магазина DVIZH FREIBURG. Оформить заказ можно на сайте.',
-      kb([[{ text: '🛍 Открыть магазин', url: env.SITE_URL || 'https://dvizhso.github.io/dvizhshop' }]])).catch(() => {});
+    return reply(env, chatId, '🛍 DVIZH FREIBURG — открой магазин в Telegram.',
+      kb([[{ text: '🛍 Открыть магазин', web_app: { url: env.SITE_URL || 'https://dvizhso.github.io/dvizhshop' } }]])).catch(() => {});
   }
 
   if (update.callback_query) return handleCallback(env, update.callback_query);

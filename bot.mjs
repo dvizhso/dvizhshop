@@ -422,7 +422,7 @@ async function onCallback(cq) {
     const id = Number(data.split(':')[1]);
     return showOrder(chatId, cq, id);
   }
-  if (/^ost:\d+:(new|confirmed|processing|prepared|shipped|done|cancelled)$/.test(data)) {
+  if (/^ost:\d+:(new|confirmed|preparing|ready|shipped|done|cancelled|processing|prepared)$/.test(data)) {
     const [, id, status] = data.split(':');
     try {
       const o = db.setOrderStatus(id, status);
@@ -548,8 +548,9 @@ async function showOrder(chatId, cq, id) {
   ].filter((x) => x !== '');
   const markup = kb([
     [{ text: '☑ Принять', callback_data: `ost:${o.id}:confirmed` }, { text: '❌ Отклонить', callback_data: `ost:${o.id}:cancelled` }],
-    [{ text: '⚙️ В обработке', callback_data: `ost:${o.id}:processing` }, { text: '📦 Подготовлен', callback_data: `ost:${o.id}:prepared` }],
-    [{ text: '🏁 Выполнен', callback_data: `ost:${o.id}:done` }, { text: '🆕 Новая', callback_data: `ost:${o.id}:new` }],
+    [{ text: '👨‍🍳 Готовится', callback_data: `ost:${o.id}:preparing` }, { text: '📦 Готов к получению', callback_data: `ost:${o.id}:ready` }],
+    [{ text: '🚚 Отправлен', callback_data: `ost:${o.id}:shipped` }, { text: '🏁 Завершён', callback_data: `ost:${o.id}:done` }],
+    [{ text: '🆕 Новая', callback_data: `ost:${o.id}:new` }],
     backBtn('ord:all:0', '← К заказам'),
   ]);
   if (cq) return edit(cq, lines.join('\n'), markup);

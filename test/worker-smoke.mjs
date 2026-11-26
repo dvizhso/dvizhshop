@@ -110,6 +110,22 @@ async function webhook(update, secret = WEBHOOK_SECRET) {
 }
 
 const checks = {};
+
+async function makeInitData(token, user, authDate = Math.floor(Date.now() / 1000)) {
+  const enc = new TextEncoder();
+  const params = new URLSearchParams({ auth_date: String(authDate), user: JSON.stringify(user) });
+  const pairs = [...params.entries()].map(([k, v]) => `${k}=${v}`).sort();
+  const sign = async (key, data) => new Uint8Array(await crypto.subtle.sign(
+    'HMAC',
+    await crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']),
+    data,
+  ));
+  const secret = await sign(enc.encode(token), enc.encode('WebAppData'));
+  const signature = await sign(secret, enc.encode(pairs.join('\n')));
+  params.set('hash', Array.from(signature, (b) => b.toString(16).padStart(2, '0')).join(''));
+  return params.toString();
+}
+
 try {
   const health = await call('/health');
   checks.health = health.status === 200 && health.data.ok === true;
@@ -155,7 +171,7 @@ try {
     && /📍 Способ получения: Доставка/.test(firstMessage.body.text)
     && /📞 Контакт покупателя: @worker_test/.test(firstMessage.body.text)
     && /🕒 Время оформления: /.test(firstMessage.body.text)
-    && /Статус: <b>🆕 Новая заявка<\/b>/.test(firstMessage.body.text);
+    && /Статус: <b>🆕 Новый<\/b>/.test(firstMessage.body.text);
   const buttons = firstMessage?.body.reply_markup?.inline_keyboard?.flat() || [];
   checks.notificationButtons = ['☑ Принять заявку', '❌ Отклонить заявку', '📋 Посмотреть подробности', '📦 Отметить как выполненную']
     .every((label) => buttons.some((b) => b.text === label));
@@ -260,6 +276,8 @@ try {
   checks.botOwnerGateAllow = owner.status === 200
     && /панель управления/.test(ownerReply?.body?.text || '')
     && ownerReply?.body?.reply_markup?.inline_keyboard?.length > 0;
+  checks.botWebAppButton = Boolean(ownerReply?.body?.reply_markup?.inline_keyboard
+    ?.flat().some((b) => b.web_app?.url === 'https://dvizhso.github.io/dvizhshop'));
 
   // Кнопка «В обработке» меняет статус и уведомляет покупателя.
   telegram.length = 0;
@@ -371,7 +389,46 @@ try {
   });
   const doneBuyer = telegram.find((m) => m.method === 'sendMessage' && String(m.body.chat_id) === '222');
   checks.orderStatus = status.status === 200 && status.data.order.status === 'done';
-  checks.buyerNotifiedDone = Boolean(doneBuyer) && /🏁 Выполнен/.test(doneBuyer.body.text);
+  checks.buyerNotifiedDone = Boolean(doneBuyer) && /🏁 Завершён/.test(doneBuyer.body.text);
+
+  // Telegram Mini App: подлинный initData привязывает заказ к Telegram ID.
+  const validInit = await makeInitData(env.TELEGRAM_BOT_TOKEN, { id: 555001, username: 'mini_user', first_name: 'Mini' });
+  const webOrder = await call('/api/orders', {
+    method: 'POST',
+    headers: { 'CF-Connecting-IP': '203.0.113.20' },
+    body: {
+      customer_name: 'Mini App Покупатель', contact: '@mini_user', delivery: 'pickup',
+      idempotency_key: 'smoke-miniapp-0001', init_data: validInit,
+      items: [{ productId: 1, size: 'M', color: 'Чёрный', qty: 1 }],
+    },
+  });
+  const webLinked = sqlite.prepare('SELECT tg_user_id, tg_chat_id, tg_username FROM orders WHERE public_id = ?')
+    .get(webOrder.data?.order?.public_id || '');
+  checks.miniAppOrderLinked = webOrder.status === 201
+    && Number(webLinked?.tg_user_id) === 555001
+    && String(webLinked?.tg_chat_id) === '555001'
+    && webLinked?.tg_username === 'mini_user';
+
+  const tampered = validInit.replace(/hash=[0-9a-f]+/, 'hash=' + '0'.repeat(64));
+  const badInit = await call('/api/orders', {
+    method: 'POST',
+    headers: { 'CF-Connecting-IP': '203.0.113.21' },
+    body: {
+      customer_name: 'Поддельный initData', contact: '@fake', delivery: 'delivery',
+      idempotency_key: 'smoke-miniapp-0002', init_data: tampered,
+      items: [{ productId: 1, size: 'M', color: 'Чёрный', qty: 1 }],
+    },
+  });
+  const unlinked = sqlite.prepare('SELECT tg_user_id FROM orders WHERE public_id = ?')
+    .get(badInit.data?.order?.public_id || '');
+  checks.miniAppRejectsFakeInitData = badInit.status === 201 && !unlinked?.tg_user_id;
+
+  const statusPreparing = await call('/api/admin/orders/1', {
+    method: 'PATCH',
+    headers: { 'X-Admin-Token': 'test-admin-token' },
+    body: { status: 'preparing' },
+  });
+  checks.newStatuses = statusPreparing.status === 200 && statusPreparing.data.order.status === 'preparing';
 
   const hook = await call('/api/admin/telegram/webhook', {
     method: 'POST',

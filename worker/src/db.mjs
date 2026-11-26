@@ -1,15 +1,17 @@
 // D1-слой магазина. Схема совместима с локальной SQLite-версией.
 // Все функции асинхронные: Cloudflare D1 не поддерживает синхронные запросы.
 
-export const ORDER_STATUSES = ['new', 'confirmed', 'processing', 'prepared', 'done', 'cancelled', 'shipped'];
+export const ORDER_STATUSES = ['new', 'confirmed', 'preparing', 'ready', 'shipped', 'done', 'cancelled', 'processing', 'prepared'];
 export const STATUS_LABELS = {
-  new: '🆕 Новая заявка',
+  new: '🆕 Новый',
   confirmed: '✅ Подтверждён',
+  preparing: '👨‍🍳 Готовится',
+  ready: '📦 Готов к получению',
+  shipped: '🚚 Отправлен',
+  done: '🏁 Завершён',
+  cancelled: '❌ Отменён',
   processing: '⚙️ В обработке',
   prepared: '📦 Подготовлен',
-  done: '🏁 Выполнен',
-  cancelled: '❌ Отклонён',
-  shipped: '🚚 Отправлен',
 };
 export const DELIVERY_LABELS = {
   delivery: 'Доставка',
@@ -75,6 +77,7 @@ CREATE TABLE IF NOT EXISTS orders (
   status TEXT NOT NULL DEFAULT 'new',
   tg_message_id INTEGER,
   tg_chat_id TEXT,
+  tg_user_id INTEGER,
   tg_username TEXT,
   idempotency_key TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
@@ -190,6 +193,7 @@ async function init(env) {
   for (const sql of [
     'ALTER TABLE orders ADD COLUMN tg_message_id INTEGER',
     'ALTER TABLE orders ADD COLUMN tg_chat_id TEXT',
+    'ALTER TABLE orders ADD COLUMN tg_user_id INTEGER',
     'ALTER TABLE orders ADD COLUMN tg_username TEXT',
     'ALTER TABLE orders ADD COLUMN idempotency_key TEXT',
     "ALTER TABLE orders ADD COLUMN delivery TEXT NOT NULL DEFAULT ''",
@@ -459,7 +463,7 @@ export class OutOfStockError extends Error {}
 
 const orderHit = (env, ip) => run(env, 'INSERT INTO order_hits (ip, created_at) VALUES (?, ?)', ip, Date.now());
 
-export async function createOrder(env, input, ip = 'unknown') {
+export async function createOrder(env, input, ip = 'unknown', telegramUser = null) {
   await ensureSchema(env);
 
   // Защита от повторной отправки: один и тот же ключ возвращает уже созданный заказ.
@@ -521,11 +525,14 @@ export async function createOrder(env, input, ip = 'unknown') {
 
   const total = prepared.reduce((sum, x) => sum + x.product.price_cents * x.qty, 0);
   const pid = publicId();
+  const verifiedChat = Number(telegramUser?.id || 0) > 0 ? String(telegramUser.id) : '';
   const statements = [
     env.DB.prepare(`INSERT INTO orders
-      (public_id, customer_name, contact, note, delivery, total_cents, idempotency_key)
-      VALUES (?, ?, ?, ?, ?, ?, ?)`)
-      .bind(pid, name, contact, note, delivery, total, idemKey || null),
+      (public_id, customer_name, contact, note, delivery, total_cents, idempotency_key, tg_user_id, tg_chat_id, tg_username)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`)
+      .bind(pid, name, contact, note, delivery, total, idemKey || null,
+        verifiedChat ? Number(telegramUser.id) : null, verifiedChat || null,
+        verifiedChat ? String(telegramUser.username || '').slice(0, 64) : ''),
   ];
   for (const item of prepared) {
     statements.push(env.DB.prepare(`INSERT INTO order_items

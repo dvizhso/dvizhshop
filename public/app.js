@@ -33,7 +33,68 @@
     photo: 0,
     sending: false,
     idempotencyKey: '',
+    telegram: { active: false, user: null, initData: '' },
   };
+
+  // SDK загружается и в обычном браузере; Mini App отличается наличием initData.
+  const sdk = window.Telegram?.WebApp || null;
+  const webApp = sdk && sdk.initData ? sdk : null;
+  state.telegram = {
+    active: Boolean(webApp),
+    user: webApp?.initDataUnsafe?.user || null,
+    initData: webApp?.initData || '',
+  };
+
+  /* ---------------- Telegram Mini App ---------------- */
+  function applyTelegramTheme() {
+    if (!webApp) return;
+    const theme = webApp.themeParams || {};
+    const root = document.documentElement;
+    const vars = {
+      '--tg-bg': theme.bg_color,
+      '--tg-text': theme.text_color,
+      '--tg-hint': theme.hint_color,
+      '--tg-button': theme.button_color,
+      '--tg-button-text': theme.button_text_color,
+    };
+    for (const [name, value] of Object.entries(vars)) {
+      if (value) root.style.setProperty(name, value);
+    }
+  }
+
+  function syncTelegramButtons() {
+    if (!webApp) return;
+    if (overlays.length) webApp.BackButton?.show?.();
+    else webApp.BackButton?.hide?.();
+    if (overlays.includes('cartOverlay')) {
+      webApp.MainButton?.setText?.('ОФОРМИТЬ ЗАЯВКУ');
+      webApp.MainButton?.show?.();
+    } else {
+      webApp.MainButton?.hide?.();
+    }
+  }
+
+  function initTelegram() {
+    if (!webApp) return;
+    try {
+      webApp.ready?.();
+      document.body.classList.add('telegram-webapp');
+      webApp.expand?.();
+      applyTelegramTheme();
+      webApp.setHeaderColor?.('secondary_bg_color');
+      webApp.setBackgroundColor?.('bg_color');
+      webApp.enableClosingConfirmation?.();
+      webApp.onEvent?.('themeChanged', applyTelegramTheme);
+      webApp.BackButton?.onClick?.(() => {
+        if (overlays.length) closeOverlay(overlays[overlays.length - 1]);
+        else webApp.close?.();
+      });
+      webApp.MainButton?.onClick?.(() => {
+        if (overlays.includes('cartOverlay')) openCheckout();
+      });
+    } catch { /* старый клиент Telegram — работаем как обычный сайт */ }
+    syncTelegramButtons();
+  }
 
   /* ---------------- helpers ---------------- */
   function el(tag, attrs = {}, ...children) {
@@ -213,6 +274,7 @@
     renderCart();
     bumpCart();
     toast('Добавлено в корзину');
+    try { webApp?.HapticFeedback?.impactOccurred?.('light'); } catch { /* ignore */ }
   }
 
   function setQty(index, delta) {
@@ -795,6 +857,7 @@
           note,
           delivery,
           idempotency_key: idempotencyKey,
+          init_data: state.telegram.initData || undefined,
           items: state.cart.map((i) => ({ productId: i.productId, size: i.size, color: i.color, qty: i.qty })),
         }),
       });
@@ -847,6 +910,7 @@
     if (!overlays.length) lastFocus = document.activeElement;
     node.hidden = false;
     overlays.push(id);
+    syncTelegramButtons();
     document.body.classList.add('no-scroll');
     requestAnimationFrame(() => {
       const target = focusSelector ? node.querySelector(focusSelector) : null;
@@ -867,6 +931,7 @@
       }
       if (id === 'productOverlay') state.product = null;
     }
+    syncTelegramButtons();
   }
 
   function closeTopOverlay() {
@@ -968,6 +1033,7 @@
 
   /* ---------------- init ---------------- */
   function init() {
+    initTelegram();
     state.cart = loadCart();
     updateCartCount();
     bindEvents();

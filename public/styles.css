@@ -40,6 +40,18 @@ body {
   overflow-x: hidden;
 }
 body.no-scroll { overflow: hidden; }
+/* Telegram Mini App: тема клиента и безопасная зона iOS */
+:root {
+  --tg-bg: transparent;
+  --tg-text: transparent;
+  --tg-hint: transparent;
+}
+body.telegram-webapp {
+  background-color: var(--tg-bg, var(--bg));
+  color: var(--tg-text, var(--ink));
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+body.telegram-webapp .sheet { padding-bottom: calc(24px + env(safe-area-inset-bottom, 0px)); }
 [hidden] { display: none !important; }
 img { display: block; max-width: 100%; }
 button, input { font: inherit; color: inherit; }

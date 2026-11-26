@@ -13,6 +13,7 @@ import {
 import { notifyNewOrder, flushNotifications, notificationsConfigured, pendingNotificationCount, notifyBuyerStatus } from './notify.mjs';
 import { handleUpdate, setWebhook } from './bot.mjs';
 import { hasBot, tg } from './telegram.mjs';
+import { validateInitData } from './webapp.mjs';
 
 const MAX_BODY = 1_000_000;
 
@@ -306,7 +307,8 @@ export default {
         const body = await readJson(request);
         const ip = request.headers.get('CF-Connecting-IP') || request.headers.get('X-Forwarded-For') || 'unknown';
         try {
-          const order = await createOrder(env, body, ip.split(',')[0].trim());
+          const verified = await validateInitData(env, body.init_data);
+          const order = await createOrder(env, body, ip.split(',')[0].trim(), verified.ok ? verified.user : null);
           // Заявка уже сохранена и поставлена в очередь. Отправку не ждём,
           // чтобы покупатель не зависел от доступности Telegram.
           ctx.waitUntil(notifyNewOrder(env, order.id).catch((error) => {
